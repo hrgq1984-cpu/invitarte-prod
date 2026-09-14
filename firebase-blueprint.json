@@ -1,0 +1,279 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access control (admin, client, guest)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "client", "guest"] },
+        "phoneNumber": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "email", "role"]
+    },
+    "Plan": {
+      "title": "Plan",
+      "description": "Commercial plan tier configuration with prices and feature limits",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "currency": { "type": "string" },
+        "features": { "type": "array" },
+        "maxInvitationPhotos": { "type": "number" },
+        "maxEventPhotos": { "type": "number" },
+        "maxGuests": { "type": "number" },
+        "hasEnvelopeAnimation": { "type": "boolean" },
+        "hasTvMode": { "type": "boolean" },
+        "hasGuestbook": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "price", "currency", "active"]
+    },
+    "Template": {
+      "title": "Template",
+      "description": "Sample design template for specific event types",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "eventType": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "previewImage": { "type": "string" },
+        "requiredPlan": { "type": "string", "enum": ["bronce", "plata", "oro"] },
+        "theme": { "type": "object" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "eventType", "name", "previewImage", "requiredPlan"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Digital invitation project belonging to a client",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientEmail": { "type": "string" },
+        "eventType": { "type": "string" },
+        "templateId": { "type": "string" },
+        "planId": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "pending_payment",
+            "payment_review",
+            "paid",
+            "preview_available",
+            "approved",
+            "published",
+            "expired",
+            "cancelled"
+          ]
+        },
+        "publicSlug": { "type": "string" },
+        "previewToken": { "type": "string" },
+        "paidAt": { "type": "string" },
+        "previewAvailableAt": { "type": "string" },
+        "publishedAt": { "type": "string" },
+        "expiresAt": { "type": "string" },
+        "googleDriveUrl": { "type": "string" },
+        "googleDriveExpiresAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "clientId", "eventType", "templateId", "planId", "status", "publicSlug"]
+    },
+    "EventSettings": {
+      "title": "EventSettings",
+      "description": "Detailed event configuration, schedules, location and aesthetic themes",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "title": { "type": "string" },
+        "honoreeName": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "ceremonyTime": { "type": "string" },
+        "partyTime": { "type": "string" },
+        "timezone": { "type": "string" },
+        "locationName": { "type": "string" },
+        "address": { "type": "string" },
+        "mapsUrl": { "type": "string" },
+        "initialPhrase": { "type": "string" },
+        "dressCode": { "type": "string" },
+        "dressCodeNotes": { "type": "string" },
+        "bankAlias": { "type": "string" },
+        "bankCvu": { "type": "string" },
+        "bankHolder": { "type": "string" },
+        "bankNotes": { "type": "string" },
+        "selectedMusicUrl": { "type": "string" },
+        "musicTitle": { "type": "string" },
+        "primaryColor": { "type": "string" },
+        "secondaryColor": { "type": "string" },
+        "accentColor": { "type": "string" },
+        "fontFamily": { "type": "string" },
+        "envelopeColor": { "type": "string" },
+        "waxSealText": { "type": "string" },
+        "coverPhotoUrl": { "type": "string" },
+        "carouselPhotos": { "type": "array" }
+      },
+      "required": ["projectId", "title", "honoreeName", "date", "time", "locationName", "address"]
+    },
+    "Guest": {
+      "title": "Guest",
+      "description": "Guest entry with invitation link and quota",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "name": { "type": "string" },
+        "relationship": { "type": "string" },
+        "phone": { "type": "string" },
+        "adultsMax": { "type": "number" },
+        "childrenMax": { "type": "number" },
+        "inviteToken": { "type": "string" },
+        "sentAt": { "type": "string" },
+        "remindedAt": { "type": "string" },
+        "attendance": { "type": "string", "enum": ["pending", "confirmed", "declined"] },
+        "adultsConfirmed": { "type": "number" },
+        "childrenConfirmed": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "projectId", "name", "adultsMax", "attendance"]
+    },
+    "Rsvp": {
+      "title": "Rsvp",
+      "description": "Guest RSVP confirmation submission",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "guestId": { "type": "string" },
+        "guestName": { "type": "string" },
+        "attendance": { "type": "string", "enum": ["confirmed", "declined"] },
+        "adultsCount": { "type": "number" },
+        "childrenCount": { "type": "number" },
+        "accompaniedByAdult": { "type": "boolean" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "projectId", "guestId", "guestName", "attendance", "createdAt"]
+    },
+    "Blessing": {
+      "title": "Blessing",
+      "description": "Good wishes / guestbook message entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "author": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "projectId", "author", "message", "status", "createdAt"]
+    },
+    "Photo": {
+      "title": "Photo",
+      "description": "Event day live photo uploaded by guests or invitation photo",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "source": { "type": "string", "enum": ["invitation", "event"] },
+        "url": { "type": "string" },
+        "author": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "watermarkEnabled": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "projectId", "source", "url", "status", "createdAt"]
+    },
+    "DisplaySettings": {
+      "title": "DisplaySettings",
+      "description": "Settings for the live TV presentation mode screen",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "rotationSeconds": { "type": "number" },
+        "tvMode": { "type": "boolean" },
+        "showPhotos": { "type": "boolean" },
+        "showBlessings": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["projectId", "rotationSeconds", "tvMode"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Payment transaction record for an invitation project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "provider": { "type": "string", "enum": ["mercadopago", "transfer", "stripe", "cash"] },
+        "providerPaymentId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "review", "completed", "failed", "refunded"] },
+        "receiptUrl": { "type": "string" },
+        "paidAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "projectId", "provider", "amount", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "User profiles and global authorization roles"
+    },
+    "/plans/{planId}": {
+      "schema": { "$ref": "Plan" },
+      "description": "Commercial pricing plans configurable by admin"
+    },
+    "/templates/{templateId}": {
+      "schema": { "$ref": "Template" },
+      "description": "Curated design sample catalog"
+    },
+    "/projects/{projectId}": {
+      "schema": { "$ref": "Project" },
+      "description": "Client invitation orders and lifecycle statuses"
+    },
+    "/projects/{projectId}/settings/config": {
+      "schema": { "$ref": "EventSettings" },
+      "description": "Event dates, venue, music and theme customization"
+    },
+    "/projects/{projectId}/guests/{guestId}": {
+      "schema": { "$ref": "Guest" },
+      "description": "Invited guests list and quota tracking"
+    },
+    "/projects/{projectId}/rsvps/{rsvpId}": {
+      "schema": { "$ref": "Rsvp" },
+      "description": "Guest RSVP confirmation submissions"
+    },
+    "/projects/{projectId}/blessings/{blessingId}": {
+      "schema": { "$ref": "Blessing" },
+      "description": "Wishes and blessings guestbook entries"
+    },
+    "/projects/{projectId}/photos/{photoId}": {
+      "schema": { "$ref": "Photo" },
+      "description": "Guest event photo gallery and uploads"
+    },
+    "/projects/{projectId}/display/tv": {
+      "schema": { "$ref": "DisplaySettings" },
+      "description": "TV presentation screen configuration"
+    },
+    "/payments/{paymentId}": {
+      "schema": { "$ref": "Payment" },
+      "description": "Order payment transaction vouchers and logs"
+    }
+  }
+}

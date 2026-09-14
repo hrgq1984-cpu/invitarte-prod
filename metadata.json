@@ -1,0 +1,6 @@
+{
+  "name": "InvitArte - Invitaciones Digitales Interactivas",
+  "description": "Plataforma comercial y creador de invitaciones digitales interactivas para eventos: bodas, 15 años, bautismos, comuniones, con música, confirmaciones WhatsApp, libro de deseos y pantalla TV.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

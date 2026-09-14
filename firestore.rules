@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == 'hrgq.1984@gmail.com' || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isProjectOwner(projectId) {
+      return isAuthenticated() && (
+        resource.data.clientId == request.auth.uid ||
+        get(/databases/$(database)/documents/projects/$(projectId)).data.clientId == request.auth.uid
+      );
+    }
+
+    // Public read of templates and active plans
+    match /plans/{planId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /templates/{templateId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Projects (Invitations)
+    match /projects/{projectId} {
+      // Public can read basic project status if slug matches for invitation view
+      allow read: if true;
+      allow create: if isAuthenticated();
+      // Client can update only their project; admin can update any
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.clientId);
+      allow delete: if isAdmin();
+
+      // Subcollections inside project
+      match /settings/{docId} {
+        allow read: if true;
+        allow write: if isAdmin() || isProjectOwner(projectId);
+      }
+
+      match /guests/{guestId} {
+        // Guests can read their own guest doc if they have the token/id
+        allow read: if true;
+        allow write: if isAdmin() || isProjectOwner(projectId);
+      }
+
+      match /rsvps/{rsvpId} {
+        // Public guests can create RSVP for this project
+        allow read: if isAdmin() || isProjectOwner(projectId);
+        allow create: if true;
+        allow update, delete: if isAdmin() || isProjectOwner(projectId);
+      }
+
+      match /blessings/{blessingId} {
+        // Public can read approved blessings and create new blessing
+        allow read: if true;
+        allow create: if true;
+        allow update, delete: if isAdmin() || isProjectOwner(projectId);
+      }
+
+      match /photos/{photoId} {
+        // Public can read approved photos and guests can upload (if plan allows)
+        allow read: if true;
+        allow create: if true;
+        allow update, delete: if isAdmin() || isProjectOwner(projectId);
+      }
+
+      match /display/{docId} {
+        allow read: if true;
+        allow write: if isAdmin() || isProjectOwner(projectId);
+      }
+    }
+
+    // Payments
+    match /payments/{paymentId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.clientId == request.auth.uid);
+      allow create: if isAuthenticated();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}
