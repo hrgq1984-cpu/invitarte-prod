@@ -19,7 +19,11 @@ import {
   Phone,
   Globe,
   Lock,
-  ExternalLink
+  ExternalLink,
+  Edit3,
+  Search,
+  Filter,
+  Sparkles
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { PlanTier, ProjectStatus } from '../types';
@@ -41,10 +45,68 @@ export const AdminDashboard: React.FC = () => {
     displaySettings,
     updateDisplaySettings,
     exportDatabaseJson,
-    resetAllData
+    resetAllData,
+    currentEventSettings,
+    updateEventSettings
   } = useStore();
 
   const [activeAdminTab, setActiveAdminTab] = useState<'projects' | 'pricing' | 'payments' | 'moderation' | 'tv' | 'deployment' | 'backup'>('projects');
+  
+  // Projects tab filters & search
+  const [projectSearch, setProjectSearch] = useState('');
+  const [projectStatusFilter, setProjectStatusFilter] = useState<string>('all');
+  const [projectSortOrder, setProjectSortOrder] = useState<'newest' | 'oldest' | 'name'>('newest');
+
+  // Quick edit project / invitation modal state
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    title: string;
+    honoreeName: string;
+    date: string;
+    time: string;
+    locationName: string;
+    address: string;
+    dressCode: string;
+    initialPhrase: string;
+  }>({
+    title: '',
+    honoreeName: '',
+    date: '',
+    time: '',
+    locationName: '',
+    address: '',
+    dressCode: '',
+    initialPhrase: ''
+  });
+  const [editSavedSuccess, setEditSavedSuccess] = useState(false);
+
+  // Open edit modal for a specific project
+  const handleOpenEditModal = (projectId: string) => {
+    setSelectedProjectId(projectId);
+    setEditingProjectId(projectId);
+    setEditForm({
+      title: currentEventSettings.title || '',
+      honoreeName: currentEventSettings.honoreeName || '',
+      date: currentEventSettings.date || '',
+      time: currentEventSettings.time || '',
+      locationName: currentEventSettings.locationName || '',
+      address: currentEventSettings.address || '',
+      dressCode: currentEventSettings.dressCode || '',
+      initialPhrase: currentEventSettings.initialPhrase || ''
+    });
+    setEditSavedSuccess(false);
+  };
+
+  const handleSaveProjectEdits = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProjectId) return;
+    updateEventSettings(editingProjectId, editForm);
+    setEditSavedSuccess(true);
+    setTimeout(() => {
+      setEditSavedSuccess(false);
+      setEditingProjectId(null);
+    }, 1500);
+  };
   
   // Price editing state
   const [editingPrices, setEditingPrices] = useState<Record<PlanTier, number>>({
@@ -185,84 +247,335 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* 1. TAB PROJECTS & GLOBAL PUBLISHING CONTROL */}
-      {activeAdminTab === 'projects' && (
-        <div className="space-y-4 text-xs">
-          <div className="flex items-center justify-between">
-            <p className="text-neutral-400">
-              Control de estado de proyectos. Solo el administrador general puede pausar o reabrir publicaciones globales.
-            </p>
-          </div>
+      {activeAdminTab === 'projects' && (() => {
+        // Filter and sort projects
+        const filteredProjects = projects
+          .filter(proj => {
+            const matchesSearch = 
+              proj.publicSlug.toLowerCase().includes(projectSearch.toLowerCase()) ||
+              proj.clientEmail.toLowerCase().includes(projectSearch.toLowerCase()) ||
+              proj.eventType.toLowerCase().includes(projectSearch.toLowerCase()) ||
+              proj.planId.toLowerCase().includes(projectSearch.toLowerCase());
+            
+            const matchesStatus = projectStatusFilter === 'all' || proj.status === projectStatusFilter;
+            return matchesSearch && matchesStatus;
+          })
+          .sort((a, b) => {
+            if (projectSortOrder === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            if (projectSortOrder === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            if (projectSortOrder === 'name') return a.publicSlug.localeCompare(b.publicSlug);
+            return 0;
+          });
 
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden shadow">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-montserrat">
-                <thead className="bg-neutral-950 text-neutral-400 font-semibold border-b border-neutral-800">
-                  <tr>
-                    <th className="p-3.5">ID / Slug</th>
-                    <th className="p-3.5">Cliente</th>
-                    <th className="p-3.5">Tipo & Plan</th>
-                    <th className="p-3.5">Estado Actual</th>
-                    <th className="p-3.5">Fecha Creación</th>
-                    <th className="p-3.5 text-right">Acciones Administrativas</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-800 text-neutral-300">
-                  {projects.map((proj) => (
-                    <tr key={proj.id} className="hover:bg-neutral-800/40 transition-colors">
-                      <td className="p-3.5 font-bold font-mono text-white">/{proj.publicSlug}</td>
-                      <td className="p-3.5 text-neutral-400">{proj.clientEmail}</td>
-                      <td className="p-3.5">
-                        <span className="capitalize">{proj.eventType}</span> • <span className="font-bold text-amber-400 uppercase">{proj.planId}</span>
-                      </td>
-                      <td className="p-3.5">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          proj.status === 'published' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                          proj.status === 'preview_available' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                          proj.status === 'pending_payment' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                          'bg-neutral-800 text-neutral-400'
-                        }`}>
-                          {proj.status.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-neutral-500">{new Date(proj.createdAt).toLocaleDateString()}</td>
-                      <td className="p-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {proj.status !== 'published' ? (
-                            <button
-                              onClick={() => adminSetProjectStatus(proj.id, 'published')}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1"
-                              title="Publicar Inmediatamente"
-                            >
-                              <PlayCircle className="w-3.5 h-3.5" />
-                              Publicar
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => adminSetProjectStatus(proj.id, 'draft')}
-                              className="px-2.5 py-1 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold flex items-center gap-1"
-                              title="Pausar Publicación"
-                            >
-                              <PauseCircle className="w-3.5 h-3.5" />
-                              Pausar
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setSelectedProjectId(proj.id)}
-                            className="px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 flex items-center gap-1"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            Seleccionar
-                          </button>
-                        </div>
-                      </td>
+        const approvedCount = projects.filter(p => p.status === 'published' || p.status === 'approved').length;
+
+        return (
+          <div className="space-y-4 text-xs">
+            {/* Header & Stats bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-neutral-900 border border-neutral-800 p-4 rounded-2xl">
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-amber-400" />
+                  Control General de Invitaciones & Proyectos
+                </h3>
+                <p className="text-neutral-400 text-[11px] mt-0.5">
+                  Gestiona, ordena, publica/pausa y modifica cualquier detalle de las invitaciones aprobadas o en curso.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {approvedCount} Aprobadas / Activas
+                </span>
+                <span className="px-3 py-1.5 rounded-xl bg-neutral-800 text-neutral-300 font-bold text-xs">
+                  Total: {projects.length}
+                </span>
+              </div>
+            </div>
+
+            {/* Filter and Search Controls */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-neutral-900/60 border border-neutral-800 p-3 rounded-2xl">
+              {/* Search */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Buscar por slug, email, tipo..."
+                  value={projectSearch}
+                  onChange={(e) => setProjectSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              {/* Status Filter */}
+              <div className="relative">
+                <Filter className="w-4 h-4 text-neutral-500 absolute left-3 top-2.5" />
+                <select
+                  value={projectStatusFilter}
+                  onChange={(e) => setProjectStatusFilter(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400"
+                >
+                  <option value="all">Todos los Estados ({projects.length})</option>
+                  <option value="published">Aprobadas / Publicadas ({projects.filter(p => p.status === 'published').length})</option>
+                  <option value="preview_available">En Vista Previa / Esperando OK ({projects.filter(p => p.status === 'preview_available').length})</option>
+                  <option value="pending_payment">Pendiente de Pago ({projects.filter(p => p.status === 'pending_payment').length})</option>
+                  <option value="draft">Borrador / Pausadas ({projects.filter(p => p.status === 'draft').length})</option>
+                </select>
+              </div>
+
+              {/* Sort Order */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={projectSortOrder}
+                  onChange={(e) => setProjectSortOrder(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400"
+                >
+                  <option value="newest">Más recientes primero</option>
+                  <option value="oldest">Más antiguas primero</option>
+                  <option value="name">Ordenar por Nombre / Slug</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Quick Edit Modal if open */}
+            {editingProjectId && (
+              <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-neutral-900 border border-neutral-700 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Edit3 className="w-5 h-5 text-amber-400" />
+                      <h4 className="text-base font-cinzel font-bold text-white">
+                        Modificar Invitación
+                      </h4>
+                    </div>
+                    <button
+                      onClick={() => setEditingProjectId(null)}
+                      className="p-1 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white"
+                    >
+                      <XCircle className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {editSavedSuccess && (
+                    <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-semibold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      ¡Cambios guardados y aplicados a la invitación correctamente!
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSaveProjectEdits} className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-neutral-400 mb-1">Título del Evento</label>
+                        <input
+                          type="text"
+                          value={editForm.title}
+                          onChange={e => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                          className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white text-xs"
+                          placeholder="Ej: Nuestra Boda"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-neutral-400 mb-1">Nombre Festejado/s</label>
+                        <input
+                          type="text"
+                          value={editForm.honoreeName}
+                          onChange={e => setEditForm(prev => ({ ...prev, honoreeName: e.target.value }))}
+                          className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white text-xs"
+                          placeholder="Ej: Sofía & Lucas"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-neutral-400 mb-1">Fecha</label>
+                        <input
+                          type="date"
+                          value={editForm.date}
+                          onChange={e => setEditForm(prev => ({ ...prev, date: e.target.value }))}
+                          className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-neutral-400 mb-1">Horario</label>
+                        <input
+                          type="text"
+                          value={editForm.time}
+                          onChange={e => setEditForm(prev => ({ ...prev, time: e.target.value }))}
+                          className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white text-xs"
+                          placeholder="20:30 hs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-neutral-400 mb-1">Lugar / Salón</label>
+                        <input
+                          type="text"
+                          value={editForm.locationName}
+                          onChange={e => setEditForm(prev => ({ ...prev, locationName: e.target.value }))}
+                          className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white text-xs"
+                          placeholder="Palacio Duhau"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-neutral-400 mb-1">Dirección</label>
+                        <input
+                          type="text"
+                          value={editForm.address}
+                          onChange={e => setEditForm(prev => ({ ...prev, address: e.target.value }))}
+                          className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white text-xs"
+                          placeholder="Av. Alvear 1661, Recoleta"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-neutral-400 mb-1">Dress Code</label>
+                      <input
+                        type="text"
+                        value={editForm.dressCode}
+                        onChange={e => setEditForm(prev => ({ ...prev, dressCode: e.target.value }))}
+                        className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white text-xs"
+                        placeholder="Elegante / Black Tie"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-neutral-400 mb-1">Frase de Bienvenida / Portada</label>
+                      <textarea
+                        rows={2}
+                        value={editForm.initialPhrase}
+                        onChange={e => setEditForm(prev => ({ ...prev, initialPhrase: e.target.value }))}
+                        className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white text-xs"
+                        placeholder="El amor no se mira, se siente..."
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-800">
+                      <button
+                        type="button"
+                        onClick={() => setEditingProjectId(null)}
+                        className="px-4 py-2 rounded-xl bg-neutral-800 text-neutral-300 font-semibold text-xs hover:bg-neutral-700"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Guardar Cambios
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Table of projects */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden shadow">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-montserrat">
+                  <thead className="bg-neutral-950 text-neutral-400 font-semibold border-b border-neutral-800">
+                    <tr>
+                      <th className="p-3.5">ID / Slug</th>
+                      <th className="p-3.5">Cliente</th>
+                      <th className="p-3.5">Tipo & Plan</th>
+                      <th className="p-3.5">Estado Actual</th>
+                      <th className="p-3.5">Fecha Creación</th>
+                      <th className="p-3.5 text-right">Acciones de Control & Edición</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-800 text-neutral-300">
+                    {filteredProjects.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-neutral-500">
+                          No se encontraron invitaciones con los filtros seleccionados.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredProjects.map((proj) => (
+                        <tr key={proj.id} className="hover:bg-neutral-800/40 transition-colors">
+                          <td className="p-3.5 font-bold font-mono text-white">
+                            <div className="flex items-center gap-1.5">
+                              <span>/{proj.publicSlug}</span>
+                              {proj.status === 'published' && (
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" title="Activa y pública" />
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3.5 text-neutral-400">{proj.clientEmail}</td>
+                          <td className="p-3.5">
+                            <span className="capitalize">{proj.eventType}</span> • <span className="font-bold text-amber-400 uppercase">{proj.planId}</span>
+                          </td>
+                          <td className="p-3.5">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              proj.status === 'published' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                              proj.status === 'preview_available' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                              proj.status === 'pending_payment' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                              'bg-neutral-800 text-neutral-400'
+                            }`}>
+                              {proj.status === 'published' ? 'Aprobada / Online' : proj.status.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-neutral-500">{new Date(proj.createdAt).toLocaleDateString()}</td>
+                          <td className="p-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Quick Edit */}
+                              <button
+                                onClick={() => handleOpenEditModal(proj.id)}
+                                className="px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 font-semibold flex items-center gap-1 transition-colors"
+                                title="Editar datos del evento (fecha, lugar, textos)"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                Modificar
+                              </button>
+
+                              {/* Publish / Pause */}
+                              {proj.status !== 'published' ? (
+                                <button
+                                  onClick={() => adminSetProjectStatus(proj.id, 'published')}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1 transition-colors"
+                                  title="Aprobar y Publicar Inmediatamente"
+                                >
+                                  <PlayCircle className="w-3.5 h-3.5" />
+                                  Publicar
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => adminSetProjectStatus(proj.id, 'draft')}
+                                  className="px-2.5 py-1 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold flex items-center gap-1 transition-colors"
+                                  title="Pausar Publicación"
+                                >
+                                  <PauseCircle className="w-3.5 h-3.5" />
+                                  Pausar
+                                </button>
+                              )}
+
+                              {/* Select & View */}
+                              <button
+                                onClick={() => setSelectedProjectId(proj.id)}
+                                className="px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 flex items-center gap-1 transition-colors"
+                                title="Ver en simulador y editar en detalle"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                Ver
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 2. TAB PRICING EDITOR */}
       {activeAdminTab === 'pricing' && (

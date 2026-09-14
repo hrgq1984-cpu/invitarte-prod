@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E1B2E"/>
+      <stop offset="100%" stop-color="#0A0A0F"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded squircle -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#bgGrad)" stroke="#D97706" stroke-width="2"/>
+  
+  <!-- Envelope body -->
+  <rect x="12" y="22" width="40" height="28" rx="4" fill="#18181B" stroke="url(#goldGrad)" stroke-width="2"/>
+  
+  <!-- Envelope fold lines -->
+  <path d="M12 24 L32 38 L52 24" fill="none" stroke="url(#goldGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Sparkle stars / Diamond -->
+  <path d="M32 10 L34.5 16.5 L41 19 L34.5 21.5 L32 28 L29.5 21.5 L23 19 L29.5 16.5 Z" fill="url(#goldGrad)"/>
+  <circle cx="16" cy="16" r="1.5" fill="#FDE68A"/>
+  <circle cx="48" cy="15" r="1.5" fill="#FDE68A"/>
+</svg>
