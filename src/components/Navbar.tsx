@@ -11,7 +11,8 @@ import {
   CheckCircle2, 
   Volume2, 
   VolumeX,
-  User
+  User,
+  Link2
 } from 'lucide-react';
 import { useStore, ADMIN_USER, DEMO_CLIENT_USER, DEMO_GUEST_USER } from '../lib/store';
 import { ambientAudio } from '../lib/audioSynth';
@@ -199,6 +200,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               <FileText className="w-3.5 h-3.5" />
               Docs
             </button>
+
+            {onOpenUrlGuide && (
+              <button
+                id="nav-tab-urls"
+                onClick={onOpenUrlGuide}
+                className="px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20"
+                title="Ver URLs del sistema (Admin /Maximo1822, Cliente /cliente, Visitante /)"
+              >
+                <Link2 className="w-3.5 h-3.5 text-amber-400" />
+                <span>URLs</span>
+              </button>
+            )}
           </nav>
 
           {/* Right Area: Music Toggle + Project Selector + Role Switcher + Auth */}
@@ -382,6 +395,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <CheckCircle2 className="w-3.5 h-3.5" /> Tests
         </button>
+        {onOpenUrlGuide && (
+          <button
+            onClick={onOpenUrlGuide}
+            className="px-2.5 py-1.5 rounded-md flex items-center gap-1 text-amber-400 hover:bg-neutral-800 font-semibold"
+            title="Ver URLs del sistema"
+          >
+            <Link2 className="w-3.5 h-3.5" /> URLs
+          </button>
+        )}
       </div>
     </header>
   );

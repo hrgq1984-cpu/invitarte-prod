@@ -94,12 +94,16 @@ export const AdminDashboard: React.FC = () => {
             <h1 className="text-xl sm:text-2xl font-cinzel font-bold text-white mt-1">
               Administración Central TuInvitacionDigital
             </h1>
-            <div className="flex flex-wrap items-center gap-4 text-xs text-neutral-400 mt-2 font-mono">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-400 mt-2 font-mono">
               <span className="flex items-center gap-1 text-neutral-300">
                 <Mail className="w-3.5 h-3.5 text-blue-400" /> hrgq.1984@gmail.com
               </span>
               <span className="flex items-center gap-1 text-neutral-300">
                 <Phone className="w-3.5 h-3.5 text-emerald-400" /> WhatsApp: +54 9 3835 438603
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-blue-950/60 border border-blue-500/40 text-blue-300 text-[11px] flex items-center gap-1.5 font-sans">
+                <span className="font-bold text-white">URL Secreta:</span>
+                <span className="font-mono text-amber-300">/Maximo1822</span>
               </span>
             </div>
           </div>

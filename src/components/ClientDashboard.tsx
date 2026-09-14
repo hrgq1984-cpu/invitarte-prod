@@ -199,9 +199,13 @@ export const ClientDashboard: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-cinzel font-bold text-white mt-1">
             {currentEventSettings.title} - {currentEventSettings.honoreeName}
           </h1>
-          <p className="text-xs text-neutral-400">
-            {plan.name} (${plan.price.toLocaleString('es-AR')} ARS) • Enlace: /{currentProject.publicSlug}
-          </p>
+          <div className="flex items-center gap-2.5 flex-wrap text-xs text-neutral-400 mt-1">
+            <span>{plan.name} (${plan.price.toLocaleString('es-AR')} ARS) • Enlace: /{currentProject.publicSlug}</span>
+            <span className="px-2 py-0.5 rounded-lg bg-amber-950/60 border border-amber-500/40 text-amber-300 text-[11px] font-mono flex items-center gap-1">
+              <span className="text-neutral-400">URL Panel:</span>
+              <span className="font-bold text-amber-200">/cliente</span>
+            </span>
+          </div>
         </div>
 
         {/* Quick action buttons */}

@@ -10,6 +10,9 @@ import { CheckoutModal } from './components/CheckoutModal';
 import { AuthModal } from './components/AuthModal';
 import { TechDocsModal } from './components/TechDocsModal';
 import { TestsRunnerModal } from './components/TestsRunnerModal';
+import { UrlPortalBar } from './components/UrlPortalBar';
+import { UrlGuideModal, BASE_NETLIFY_URL } from './components/UrlGuideModal';
+import { ADMIN_USER, DEMO_CLIENT_USER } from './lib/store';
 import { DesignTemplate, PlanTier } from './types';
 import { 
   Sparkles, 
@@ -27,7 +30,7 @@ import {
 } from 'lucide-react';
 
 function AppContent() {
-  const { currentProject, templates, previewTemplate, setSelectedProjectId } = useStore();
+  const { currentProject, templates, previewTemplate, setSelectedProjectId, setCurrentUser } = useStore();
 
   const [currentView, setCurrentView] = useState<'catalog' | 'demo' | 'client' | 'admin'>('catalog');
   const [demoTemplateId, setDemoTemplateId] = useState<string | null>(null);
@@ -35,29 +38,80 @@ function AppContent() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showDocsModal, setShowDocsModal] = useState(false);
   const [showTestsModal, setShowTestsModal] = useState(false);
+  const [showUrlGuideModal, setShowUrlGuideModal] = useState(false);
   
   // Checkout Modal State
   const [checkoutTemplate, setCheckoutTemplate] = useState<DesignTemplate | null>(null);
   const [checkoutPlanId, setCheckoutPlanId] = useState<PlanTier>('plata');
 
-  // Check URL hash on load (e.g. #demo, #guest=token, #admin)
+  // Check URL pathname and hash on load and back/forward navigation
   useEffect(() => {
-    const handleHash = () => {
-      const hash = window.location.hash;
-      if (hash.includes('demo') || hash.includes('guest')) {
-        setCurrentView('demo');
-      } else if (hash.includes('admin')) {
+    const handleUrlRoute = () => {
+      const path = (window.location.pathname || '').toLowerCase();
+      const hash = (window.location.hash || '').toLowerCase();
+
+      // 1. URL Administrador: /Maximo1822
+      if (path.includes('/maximo1822') || hash.includes('maximo1822') || hash.includes('admin')) {
         setCurrentView('admin');
-      } else if (hash.includes('client')) {
+        setCurrentUser(ADMIN_USER);
+        document.title = 'Administrador General (/Maximo1822) | TuInvitacionDigital';
+      } 
+      // 2. URL Cliente Registrado: /cliente
+      else if (path.includes('/cliente') || hash.includes('cliente') || hash.includes('client')) {
         setCurrentView('client');
-      } else if (hash.includes('tv')) {
+        setCurrentUser(DEMO_CLIENT_USER);
+        document.title = 'Panel de Cliente (/cliente) | TuInvitacionDigital';
+      } 
+      // 3. Demo / Invitación interactiva del celular
+      else if (path.includes('/invitacion') || hash.includes('demo') || hash.includes('guest')) {
+        setCurrentView('demo');
+        document.title = 'Invitación Interactiva | TuInvitacionDigital';
+      } 
+      else if (hash.includes('tv')) {
         setShowTvMode(true);
+      } 
+      // 4. URL Visitante / Catálogo Público: /
+      else {
+        setCurrentView('catalog');
+        document.title = 'TuInvitacionDigital | Invitaciones Digitales & Pantalla TV';
       }
     };
-    handleHash();
-    window.addEventListener('hashchange', handleHash);
-    return () => window.removeEventListener('hashchange', handleHash);
-  }, []);
+
+    handleUrlRoute();
+    window.addEventListener('popstate', handleUrlRoute);
+    window.addEventListener('hashchange', handleUrlRoute);
+    return () => {
+      window.removeEventListener('popstate', handleUrlRoute);
+      window.removeEventListener('hashchange', handleUrlRoute);
+    };
+  }, [setCurrentUser]);
+
+  const handleNavigate = (view: 'catalog' | 'demo' | 'client' | 'admin') => {
+    setCurrentView(view);
+    let targetPath = '/';
+    if (view === 'admin') {
+      targetPath = '/Maximo1822';
+      setCurrentUser(ADMIN_USER);
+      document.title = 'Administrador General (/Maximo1822) | TuInvitacionDigital';
+    } else if (view === 'client') {
+      targetPath = '/cliente';
+      setCurrentUser(DEMO_CLIENT_USER);
+      document.title = 'Panel de Cliente (/cliente) | TuInvitacionDigital';
+    } else if (view === 'demo') {
+      targetPath = '/invitacion';
+      document.title = 'Invitación Interactiva | TuInvitacionDigital';
+    } else {
+      targetPath = '/';
+      document.title = 'TuInvitacionDigital | Invitaciones Digitales & Pantalla TV';
+    }
+
+    try {
+      window.history.pushState({ view }, '', targetPath);
+    } catch (e) {
+      window.location.hash = targetPath;
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleOpenCheckout = (template: DesignTemplate, planId: PlanTier) => {
     setCheckoutTemplate(template);
@@ -67,31 +121,34 @@ function AppContent() {
   const handleViewDemo = (template: DesignTemplate) => {
     previewTemplate(template);
     setDemoTemplateId(template.id);
-    setCurrentView('demo');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    handleNavigate('demo');
   };
 
   const handleCheckoutSuccess = (newProjectId: string) => {
     setCheckoutTemplate(null);
     setSelectedProjectId(newProjectId);
-    setCurrentView('client');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    handleNavigate('client');
   };
 
   return (
     <div className="min-h-screen bg-[#0d0d11] text-neutral-100 flex flex-col selection:bg-amber-500 selection:text-neutral-950 font-montserrat">
       
+      {/* 0. DOMAIN URL PORTAL BAR (Direct access to /Maximo1822, /cliente, /) */}
+      <UrlPortalBar 
+        currentView={currentView}
+        onNavigateTo={handleNavigate}
+        onOpenUrlGuide={() => setShowUrlGuideModal(true)}
+      />
+
       {/* 1. TOP NAVIGATION */}
       <Navbar
         currentView={currentView}
-        onNavigate={(view) => {
-          setCurrentView(view);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
+        onNavigate={handleNavigate}
         onOpenTvMode={() => setShowTvMode(true)}
         onOpenAuth={() => setShowAuthModal(true)}
         onOpenDocs={() => setShowDocsModal(true)}
         onOpenTests={() => setShowTestsModal(true)}
+        onOpenUrlGuide={() => setShowUrlGuideModal(true)}
       />
 
       {/* 2. MAIN VIEW SWITCHER */}
@@ -250,6 +307,10 @@ function AppContent() {
             © {new Date().getFullYear()} TuInvitacionDigital. Todos los derechos reservados.
           </div>
           <div className="flex items-center gap-4">
+            <button onClick={() => setShowUrlGuideModal(true)} className="text-amber-400 hover:text-amber-300 font-semibold transition-colors">
+              URLs Oficiales (/Maximo1822, /cliente, /)
+            </button>
+            <span>•</span>
             <button onClick={() => setShowDocsModal(true)} className="hover:text-neutral-300 transition-colors">
               Guía de Mantenimiento
             </button>
@@ -292,6 +353,13 @@ function AppContent() {
           onClose={() => setShowTestsModal(false)}
         />
       )}
+
+      <UrlGuideModal
+        isOpen={showUrlGuideModal}
+        onClose={() => setShowUrlGuideModal(false)}
+        onNavigateTo={handleNavigate}
+        currentView={currentView}
+      />
 
     </div>
   );
