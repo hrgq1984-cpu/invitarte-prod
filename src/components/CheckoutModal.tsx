@@ -9,7 +9,9 @@ import {
   Clock, 
   Upload,
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  Copy,
+  CheckCircle2
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { DesignTemplate, EventType, PlanTier } from '../types';
@@ -39,6 +41,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [receiptFile, setReceiptFile] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const handleCopy = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
 
   const selectedPlan = plans.find(p => p.id === selectedPlanId) || plans[0];
 
@@ -220,23 +230,78 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
           {/* Bank Transfer Details Box if Selected */}
           {paymentMethod === 'transfer' && (
-            <div className="p-4 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-2 text-[11px] text-neutral-300">
-              <div className="font-bold text-white text-xs">Datos Bancarios para la Transferencia:</div>
-              <div><strong>Titular:</strong> TuInvitacionDigital Oficial (HRGQ)</div>
-              <div><strong>Alias:</strong> <code className="text-amber-300 bg-neutral-900 px-1 py-0.5 rounded">TUINVITACION.OFICIAL.MP</code></div>
-              <div><strong>CVU:</strong> <code className="text-amber-300 bg-neutral-900 px-1 py-0.5 rounded">0000003100012345678901</code></div>
-              <div><strong>Email de Confirmación:</strong> hrgq.1984@gmail.com</div>
+            <div className="p-4 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-2.5 text-[11px] text-neutral-300">
+              <div className="font-bold text-white text-xs flex items-center justify-between">
+                <span>Datos Bancarios Oficiales para Transferencia:</span>
+                <span className="text-[10px] text-emerald-400 font-medium">Caja de Ahorro en Pesos (ARS)</span>
+              </div>
+              
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between bg-neutral-900/90 px-3 py-1.5 rounded-xl border border-neutral-800">
+                  <span><strong>Titular:</strong> Héctor René González Quiroga</span>
+                  <span className="text-[10px] text-neutral-400 font-mono">CUIT: 20-30949816-0</span>
+                </div>
 
-              <div className="pt-2">
-                <label className="block text-neutral-400 mb-1 font-semibold">Adjuntar Comprobante de Transferencia:</label>
+                <div className="flex items-center justify-between bg-neutral-900/90 px-3 py-1.5 rounded-xl border border-neutral-800">
+                  <div>
+                    <span className="text-neutral-400 mr-2">Alias:</span>
+                    <code className="text-amber-300 font-bold font-mono">hgonzalez.bru.2499</code>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('hgonzalez.bru.2499', 'alias')}
+                    className="p-1 px-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white flex items-center gap-1 text-[10px] transition-colors"
+                  >
+                    {copiedKey === 'alias' ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedKey === 'alias' ? 'Copiado' : 'Copiar'}</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between bg-neutral-900/90 px-3 py-1.5 rounded-xl border border-neutral-800">
+                  <div>
+                    <span className="text-neutral-400 mr-2">CBU:</span>
+                    <code className="text-amber-300 font-mono text-[11px]">1430001713024956100018</code>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('1430001713024956100018', 'cbu')}
+                    className="p-1 px-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white flex items-center gap-1 text-[10px] transition-colors"
+                  >
+                    {copiedKey === 'cbu' ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedKey === 'cbu' ? 'Copiado' : 'Copiar'}</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between bg-neutral-900/90 px-3 py-1.5 rounded-xl border border-neutral-800">
+                  <div>
+                    <span className="text-neutral-400 mr-2">N° de Cuenta:</span>
+                    <code className="text-neutral-200 font-mono text-[11px]">1302495610001</code>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('1302495610001', 'cuenta')}
+                    className="p-1 px-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white flex items-center gap-1 text-[10px] transition-colors"
+                  >
+                    {copiedKey === 'cuenta' ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedKey === 'cuenta' ? 'Copiado' : 'Copiar'}</span>
+                  </button>
+                </div>
+
+                <div className="text-[10px] text-neutral-400 pt-0.5">
+                  Email de confirmación / aviso: <span className="text-neutral-300 font-mono">hrgq.1984@gmail.com</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-neutral-800/80">
+                <label className="block text-neutral-300 mb-1 font-semibold">Adjuntar Comprobante de Transferencia:</label>
                 <input
                   type="file"
                   accept="image/*,application/pdf"
                   onChange={handleReceiptUpload}
-                  className="w-full text-neutral-400 text-xs"
+                  className="w-full text-neutral-400 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-neutral-800 file:text-amber-300 hover:file:bg-neutral-700 cursor-pointer"
                 />
                 {receiptFile && (
-                  <div className="text-emerald-400 font-bold mt-1">✓ Comprobante cargado correctamente</div>
+                  <div className="text-emerald-400 font-bold mt-1 text-[10px]">✓ Comprobante cargado correctamente</div>
                 )}
               </div>
             </div>

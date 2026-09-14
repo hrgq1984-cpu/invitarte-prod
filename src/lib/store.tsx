@@ -71,7 +71,7 @@ const STORAGE_KEY = 'invitarte_v1_store';
 export const ADMIN_USER: User = {
   id: 'user-admin-root',
   email: 'hrgq.1984@gmail.com',
-  displayName: 'Administrador General (Horacio)',
+  displayName: 'Héctor René González Quiroga (Admin)',
   role: 'admin',
   phoneNumber: '3835438603',
   createdAt: '2026-09-01T00:00:00.000Z'
@@ -133,9 +133,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const loginAdmin = (secretKey: string): boolean => {
-    const clean = secretKey.trim().toLowerCase();
-    // Valid keys: 'maximo1822', 'admin1822', 'admin'
-    if (clean === 'maximo1822' || clean === 'admin1822' || clean === 'admin') {
+    const raw = secretKey.trim();
+    // Clave exacta solicitada: 'Maximo1822.@'
+    // También permitimos sin distinción de mayúsculas si coincide la estructura
+    if (raw === 'Maximo1822.@' || raw.toLowerCase() === 'maximo1822.@') {
       setCurrentUser(ADMIN_USER);
       return true;
     }

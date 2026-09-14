@@ -1,7 +1,17 @@
 # Guía Maestra de URLs y Accesos del Sistema
 **Plataforma:** TuInvitacionDigital  
 **Dominio de Producción:** `https://tuinvitaciondigital.netlify.app`  
-**Administrador General:** Horacio Gómez (`hrgq.1984@gmail.com` | `+54 9 3835 438603`)
+**Titular y Administrador General:** Héctor René González Quiroga (`hrgq.1984@gmail.com` | `+54 9 3835 438603`)
+
+---
+
+## 🏦 Datos Bancarios Oficiales para Cobros de la Plataforma
+* **Titular:** Héctor René González Quiroga
+* **CUIT/CUIL:** 20-30949816-0
+* **Alias:** `hgonzalez.bru.2499`
+* **CBU:** `1430001713024956100018`
+* **Número de Cuenta:** `1302495610001`
+* **Email de Aviso / Comprobantes:** `hrgq.1984@gmail.com`
 
 ---
 
@@ -10,7 +20,7 @@
 | Módulo / Rol | Ruta Relativa | URL en Netlify | Método de Acceso / Credencial |
 | :--- | :--- | :--- | :--- |
 | **Público / Catálogo** | `/` | `https://tuinvitaciondigital.netlify.app/` | Acceso libre para cualquier visitante o comprador |
-| **Administrador General** | `/Maximo1822` | `https://tuinvitaciondigital.netlify.app/Maximo1822` | **Protegido por Clave Maestra:** `Maximo1822` |
+| **Administrador General** | `/Maximo1822` | `https://tuinvitaciondigital.netlify.app/Maximo1822` | **Protegido por Clave Maestra:** `Maximo1822.@` |
 | **Portal de Clientes** | `/cliente` | `https://tuinvitaciondigital.netlify.app/cliente` | Correo del titular o código/slug del evento (ej. `sofia-mateo`) |
 | **Demo de Celular** | `/invitacion` | `https://tuinvitaciondigital.netlify.app/invitacion` | Acceso directo para probar la tarjeta digital interactiva |
 | **Pantalla TV para Salón** | `#tv` o botón TV | `https://tuinvitaciondigital.netlify.app/#tv` | Disponible desde el panel de cliente o URL directa |
@@ -24,7 +34,7 @@ Esta ruta está **estrictamente protegida** con una pantalla de bloqueo (*Admin 
 
 * **URL Directa:** `https://tuinvitaciondigital.netlify.app/Maximo1822`
 * **Ruta local:** `http://localhost:3000/Maximo1822`
-* **Clave de Acceso:** `Maximo1822` (también acepta `admin1822`)
+* **Clave de Acceso Oficial:** `Maximo1822.@`
 * **Funciones Disponibles:**
   1. **Gestión de Precios en Pesos Argentinos (ARS):** Ajustar y actualizar en tiempo real las tarifas de los planes:
      * *Plan Básico*

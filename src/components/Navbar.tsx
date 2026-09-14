@@ -377,7 +377,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-950/80 border border-blue-500/40 text-blue-300 text-xs font-mono">
                   <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-                  <span className="hidden sm:inline font-bold">Horacio Gómez (Admin)</span>
+                  <span className="hidden sm:inline font-bold">Héctor González (Admin)</span>
                   <span className="sm:hidden font-bold">Admin</span>
                 </div>
                 <button

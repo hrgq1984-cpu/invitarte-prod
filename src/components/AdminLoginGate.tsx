@@ -41,13 +41,6 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onSuccess, onGoB
     }, 250);
   };
 
-  const handleQuickMasterLogin = () => {
-    setSecretKey('Maximo1822');
-    setError('');
-    loginAdmin('Maximo1822');
-    onSuccess();
-  };
-
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 font-montserrat">
       <div className="max-w-md w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
@@ -84,7 +77,7 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onSuccess, onGoB
           </div>
           <div className="flex items-center gap-2 text-neutral-300">
             <Phone className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-            <span>+54 9 3835 438603 (Horacio Gómez)</span>
+            <span>+54 9 3835 438603 (Héctor René González Quiroga)</span>
           </div>
         </div>
 
@@ -136,23 +129,8 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onSuccess, onGoB
           </button>
         </form>
 
-        {/* Quick Review Unlock for Owner */}
-        <div className="pt-2 border-t border-neutral-800 text-center space-y-2">
-          <p className="text-[11px] text-neutral-400">
-            ¿Eres Horacio Gómez? Puedes desbloquear con la clave predeterminada:
-          </p>
-          <button
-            type="button"
-            onClick={handleQuickMasterLogin}
-            className="w-full py-2 rounded-xl bg-neutral-800/80 hover:bg-neutral-800 text-blue-300 border border-blue-500/30 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
-          >
-            <ShieldCheck className="w-4 h-4 text-blue-400" />
-            Acceder como Horacio Gómez (Clave: Maximo1822)
-          </button>
-        </div>
-
         {/* Go back to public visitor catalog */}
-        <div className="text-center pt-1">
+        <div className="text-center pt-2 border-t border-neutral-800">
           <button
             type="button"
             onClick={onGoBack}
