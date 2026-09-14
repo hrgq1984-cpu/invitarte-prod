@@ -27,9 +27,10 @@ import {
 } from 'lucide-react';
 
 function AppContent() {
-  const { currentProject, templates, updateEventSettings, setSelectedProjectId } = useStore();
+  const { currentProject, templates, previewTemplate, setSelectedProjectId } = useStore();
 
   const [currentView, setCurrentView] = useState<'catalog' | 'demo' | 'client' | 'admin'>('catalog');
+  const [demoTemplateId, setDemoTemplateId] = useState<string | null>(null);
   const [showTvMode, setShowTvMode] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showDocsModal, setShowDocsModal] = useState(false);
@@ -64,11 +65,8 @@ function AppContent() {
   };
 
   const handleViewDemo = (template: DesignTemplate) => {
-    // Select this template in project
-    updateEventSettings(currentProject.id, {
-      title: template.name,
-      initialPhrase: template.samplePhrase
-    });
+    previewTemplate(template);
+    setDemoTemplateId(template.id);
     setCurrentView('demo');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -107,6 +105,12 @@ function AppContent() {
 
         {currentView === 'demo' && (
           <MobileMockup
+            initialTemplateId={demoTemplateId || currentProject.templateId}
+            onBackToCatalog={() => {
+              setCurrentView('catalog');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onSelectTemplateForOrder={handleOpenCheckout}
             onOpenTvMode={() => setShowTvMode(true)}
           />
         )}

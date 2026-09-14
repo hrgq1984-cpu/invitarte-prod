@@ -58,6 +58,7 @@ interface StoreContextType {
   requestClientCorrection: (projectId: string, notes: string) => void;
   adminSetProjectStatus: (projectId: string, status: ProjectStatus) => void;
   submitRsvp: (data: Omit<Rsvp, 'id' | 'createdAt'>) => void;
+  previewTemplate: (template: DesignTemplate) => void;
   resetAllData: () => void;
   exportDatabaseJson: () => string;
 }
@@ -553,6 +554,168 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const previewTemplate = (template: DesignTemplate) => {
+    // 1. Update active project metadata
+    setProjects(prev => prev.map(p => {
+      if (p.id === selectedProjectId) {
+        return {
+          ...p,
+          templateId: template.id,
+          eventType: template.eventType,
+          planId: template.requiredPlan
+        };
+      }
+      return p;
+    }));
+
+    // 2. Generate rich context for this template
+    const eventTypeLabels: Record<string, string> = {
+      boda: 'Nuestra Boda',
+      cumpleanos: '¡Mi Cumpleaños!',
+      '15anos': 'Mis Quince Años',
+      bautismo: 'Mi Bautismo',
+      comunion: 'Mi Primera Comunión',
+      confirmacion: 'Mi Confirmación',
+      otros: 'Gran Celebración'
+    };
+
+    const dressCodes: Record<string, string> = {
+      boda: 'Elegante / Traje y Vestido de Fiesta',
+      cumpleanos: 'Casual Chic / Colores Vivos',
+      '15anos': 'Elegante Sport / Con mucho brillo',
+      bautismo: 'Elegante de Día / Tonos Pastel',
+      comunion: 'Elegante Sport / Colores Claros',
+      confirmacion: 'Formal / Colores Cálidos',
+      otros: 'Gala / Black Tie'
+    };
+
+    const schedules: Record<string, Array<{ time: string; title: string; description: string; iconName?: string }>> = {
+      boda: [
+        { time: '18:00 hs', title: 'Ceremonia Nupcial', description: 'Intercambio de votos y anillos.' },
+        { time: '19:30 hs', title: 'Cocktail en Jardines', description: 'Recepción y fotos con los invitados.' },
+        { time: '21:00 hs', title: 'Cena & Vals', description: 'Cena principal y apertura de pista.' },
+        { time: '23:30 hs', title: 'Fiesta & Cotillón', description: 'Música, baile y mesa dulce.' }
+      ],
+      '15anos': [
+        { time: '21:00 hs', title: 'Recepción & Fotos', description: 'Bienvenida y sesión de fotos con amigos.' },
+        { time: '22:15 hs', title: 'Entrada Triunfal & Vals', description: 'Entrada con música especial y vals familiar.' },
+        { time: '23:00 hs', title: 'Cena & Brindis', description: 'Plato principal, video sorpresa y brindis.' },
+        { time: '00:30 hs', title: 'Fiesta & Pista de Baile', description: 'Baile, luces y tanda carioca.' }
+      ],
+      cumpleanos: [
+        { time: '21:00 hs', title: 'Bienvenida & Tragos', description: 'Barra libre y recepción con música.' },
+        { time: '22:30 hs', title: 'Cena / Pizza Party', description: 'Comida informal y risas entre amigos.' },
+        { time: '00:00 hs', title: 'Torta & Brindis', description: 'Canto del Feliz Cumpleaños y deseos.' },
+        { time: '01:00 hs', title: 'Fiesta & DJ Set', description: 'Pista encendida hasta el amanecer.' }
+      ],
+      bautismo: [
+        { time: '11:00 hs', title: 'Sacramento del Bautismo', description: 'Ceremonia de fe y bendición del agua.' },
+        { time: '12:30 hs', title: 'Almuerzo Familiar', description: 'Almuerzo y brindis con seres queridos.' },
+        { time: '15:30 hs', title: 'Mesa Dulce & Souvenirs', description: 'Corte de torta y entrega de recuerditos.' }
+      ],
+      comunion: [
+        { time: '11:00 hs', title: 'Misa de Comunión', description: 'Encuentro con Jesús y bendición.' },
+        { time: '13:00 hs', title: 'Recepción & Jardín', description: 'Cocktail y juegos al aire libre.' },
+        { time: '14:30 hs', title: 'Almuerzo Campestre', description: 'Comida familiar y momentos únicos.' },
+        { time: '17:00 hs', title: 'Souvenirs Bendecidos', description: 'Recuerdos de este día sagrado.' }
+      ],
+      confirmacion: [
+        { time: '18:00 hs', title: 'Santa Misa de Confirmación', description: 'Imposición de manos del Obispo.' },
+        { time: '19:45 hs', title: 'Brindis de Padrinos', description: 'Fotos y felicitaciones especiales.' },
+        { time: '21:00 hs', title: 'Cena de Festejo', description: 'Cena compartida en familia.' }
+      ],
+      otros: [
+        { time: '20:30 hs', title: 'Alfombra Roja & Cocktail', description: 'Recepción de invitados y acreditación.' },
+        { time: '21:45 hs', title: 'Entrega de Distinciones', description: 'Discursos y entrega de premios.' },
+        { time: '22:30 hs', title: 'Cena de Gala & Brindis', description: 'Menú por pasos y música en vivo.' }
+      ]
+    };
+
+    const categoryPhotos: Record<string, string[]> = {
+      boda: [
+        template.previewImage,
+        'https://images.unsplash.com/photo-1519741497674-611481863552?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=800&auto=format&fit=crop&q=80'
+      ],
+      '15anos': [
+        template.previewImage,
+        'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1527529482837-4698179dc6ce?w=800&auto=format&fit=crop&q=80'
+      ],
+      cumpleanos: [
+        template.previewImage,
+        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&auto=format&fit=crop&q=80'
+      ],
+      bautismo: [
+        template.previewImage,
+        'https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1544717302-de2939b7ef71?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?w=800&auto=format&fit=crop&q=80'
+      ],
+      comunion: [
+        template.previewImage,
+        'https://images.unsplash.com/photo-1544717305-2782549b5136?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?w=800&auto=format&fit=crop&q=80'
+      ],
+      confirmacion: [
+        template.previewImage,
+        'https://images.unsplash.com/photo-1544717305-2782549b5136?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80'
+      ],
+      otros: [
+        template.previewImage,
+        'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&auto=format&fit=crop&q=80'
+      ]
+    };
+
+    const newSettings: EventSettings = {
+      projectId: selectedProjectId,
+      title: template.name,
+      honoreeName: template.sampleHonoree,
+      subtitle: eventTypeLabels[template.eventType] || `Celebración de ${template.name}`,
+      date: template.sampleDate,
+      time: '18:00',
+      ceremonyTime: '18:00',
+      partyTime: '20:00',
+      timezone: 'America/Argentina/Buenos_Aires',
+      locationName: template.sampleLocation,
+      address: template.sampleLocation,
+      mapsUrl: `https://maps.google.com/?q=${encodeURIComponent(template.sampleLocation)}`,
+      initialPhrase: template.samplePhrase,
+      dressCode: dressCodes[template.eventType] || 'Elegante',
+      dressCodeNotes: 'Recomendamos puntualidad para disfrutar de cada instante.',
+      bankAlias: `${template.sampleHonoree.split(' ')[0].toUpperCase().replace(/[^A-Z]/g, '')}.REGALO.2026`,
+      bankCvu: '0000003100084592019842',
+      bankHolder: template.sampleHonoree,
+      bankNotes: 'Tu presencia es nuestro mayor regalo. Si deseas agasajarnos con una atención, puedes transferir aquí.',
+      selectedMusicUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=piano-moment-9835.mp3',
+      musicTitle: `Melodía de ${template.name}`,
+      primaryColor: template.palette.primary,
+      secondaryColor: template.palette.secondary,
+      accentColor: template.palette.accent,
+      fontFamily: template.fontFamily,
+      envelopeColor: template.envelopeColor,
+      waxSealText: template.waxSealSymbol,
+      coverPhotoUrl: template.previewImage,
+      carouselPhotos: categoryPhotos[template.eventType] || [template.previewImage],
+      schedule: schedules[template.eventType] || [
+        { time: '18:00 hs', title: 'Recepción', description: 'Bienvenida a los invitados.' },
+        { time: '20:00 hs', title: 'Celebración', description: 'Festejo y brindis especial.' }
+      ]
+    };
+
+    setEventSettingsMap(prev => ({
+      ...prev,
+      [selectedProjectId]: newSettings
+    }));
+  };
+
   const resetAllData = () => {
     localStorage.removeItem(`${STORAGE_KEY}_plans`);
     localStorage.removeItem(`${STORAGE_KEY}_projects`);
@@ -619,6 +782,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       requestClientCorrection,
       adminSetProjectStatus,
       submitRsvp,
+      previewTemplate,
       resetAllData,
       exportDatabaseJson
     }}>
