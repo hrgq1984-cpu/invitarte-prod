@@ -16,7 +16,10 @@ import {
   Sliders,
   Settings,
   Mail,
-  Phone
+  Phone,
+  Globe,
+  Lock,
+  ExternalLink
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { PlanTier, ProjectStatus } from '../types';
@@ -41,7 +44,7 @@ export const AdminDashboard: React.FC = () => {
     resetAllData
   } = useStore();
 
-  const [activeAdminTab, setActiveAdminTab] = useState<'projects' | 'pricing' | 'payments' | 'moderation' | 'tv' | 'backup'>('projects');
+  const [activeAdminTab, setActiveAdminTab] = useState<'projects' | 'pricing' | 'payments' | 'moderation' | 'tv' | 'deployment' | 'backup'>('projects');
   
   // Price editing state
   const [editingPrices, setEditingPrices] = useState<Record<PlanTier, number>>({
@@ -66,7 +69,7 @@ export const AdminDashboard: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `invitarte-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `tuinvitaciondigital-backup-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
   };
 
@@ -89,7 +92,7 @@ export const AdminDashboard: React.FC = () => {
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-cinzel font-bold text-white mt-1">
-              Administración Central InvitArte
+              Administración Central TuInvitacionDigital
             </h1>
             <div className="flex flex-wrap items-center gap-4 text-xs text-neutral-400 mt-2 font-mono">
               <span className="flex items-center gap-1 text-neutral-300">
@@ -164,6 +167,16 @@ export const AdminDashboard: React.FC = () => {
         >
           <Sliders className="w-4 h-4" />
           Ajustes de Pantalla TV
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('deployment')}
+          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
+            activeAdminTab === 'deployment' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <Globe className="w-4 h-4 text-emerald-400" />
+          Publicación & Seguridad Netlify
         </button>
       </div>
 
@@ -455,6 +468,113 @@ export const AdminDashboard: React.FC = () => {
                 />
                 Mostrar Buenos Deseos en Pantalla TV
               </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. TAB NETLIFY DEPLOYMENT & SECURITY */}
+      {activeAdminTab === 'deployment' && (
+        <div className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-6 text-xs max-w-4xl shadow-xl">
+          <div className="border-b border-neutral-800 pb-4">
+            <div className="flex items-center gap-2 text-emerald-400 font-bold uppercase tracking-wider text-[11px]">
+              <Globe className="w-4 h-4" />
+              Arquitectura de Publicación en Netlify & Seguridad
+            </div>
+            <h3 className="text-xl font-cinzel font-bold text-white mt-1">
+              Hosting de Web Pública y Panel Administrador
+            </h3>
+            <p className="text-neutral-400 mt-1">
+              Guía técnica y mejores prácticas para mantener tu web pública y tu panel administrador en <span className="text-amber-300 font-mono">https://tuinvitaciondigital.netlify.app/</span> con máxima seguridad.
+            </p>
+          </div>
+
+          {/* Current URL Box */}
+          <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] text-neutral-400 font-mono uppercase">URL Principal de Producción</div>
+              <div className="text-sm sm:text-base font-bold text-amber-300 font-mono mt-0.5">
+                https://tuinvitaciondigital.netlify.app/
+              </div>
+            </div>
+            <a
+              href="https://tuinvitaciondigital.netlify.app/"
+              target="_blank"
+              rel="noreferrer"
+              className="px-3.5 py-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 text-xs font-semibold flex items-center gap-1.5 transition-colors self-start sm:self-center"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
+              <span>Abrir Sitio en Vivo</span>
+            </a>
+          </div>
+
+          {/* Architecture comparison */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Option 1: Monorepo SPA (Current & Recommended for Cost/Simplicity) */}
+            <div className="p-4 rounded-xl bg-neutral-950 border border-emerald-500/30 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                <span className="font-bold text-white">Opción 1: SPA Única Protegida (Recomendada)</span>
+              </div>
+              <p className="text-neutral-300 text-[11px] leading-relaxed">
+                Tanto la web pública (catálogo, demos e invitaciones) como el administrador conviven en el mismo dominio de Netlify.
+              </p>
+              <ul className="list-disc pl-4 space-y-1 text-neutral-400 text-[11px]">
+                <li><strong>Ventaja:</strong> Un solo despliegue, un solo dominio en Netlify, costo cero y sincronización instantánea.</li>
+                <li><strong>Regla de oro:</strong> La seguridad <em>nunca</em> depende de "ocultar" la URL, sino de las <strong>reglas de Firestore (Backend)</strong> y el inicio de sesión con tu email autorizado (<code className="text-blue-300">hrgq.1984@gmail.com</code>).</li>
+                <li>Aunque un usuario curioso descubra la ruta o intente modificar el JavaScript local, Firebase rechazará cualquier intento no autorizado de leer o escribir datos sensibles.</li>
+              </ul>
+            </div>
+
+            {/* Option 2: Separate Subdomain */}
+            <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-400" />
+                <span className="font-bold text-white">Opción 2: Subdominio Separado (Empresarial)</span>
+              </div>
+              <p className="text-neutral-300 text-[11px] leading-relaxed">
+                Separar en dos sitios de Netlify independientes:
+              </p>
+              <ul className="list-disc pl-4 space-y-1 text-neutral-400 text-[11px]">
+                <li><code className="text-amber-300">tuinvitaciondigital.netlify.app</code> (Público)</li>
+                <li><code className="text-blue-300">admin-tuinvitaciondigital.netlify.app</code> (Admin protegido con Netlify Identity o contraseña HTTP Basic)</li>
+                <li><strong>Ventaja:</strong> El código del panel administrador no se envía a los navegadores del público general.</li>
+                <li><strong>Desventaja:</strong> Requiere mantener 2 sitios en Netlify y coordinar compilaciones separadas.</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Checklist for Netlify */}
+          <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-3">
+            <div className="font-bold text-white text-xs flex items-center gap-1.5">
+              <Lock className="w-4 h-4 text-amber-400" />
+              Medidas de Seguridad ya Incorporadas en tu Proyecto:
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[11px] text-neutral-300">
+              <div className="flex items-start gap-2 bg-neutral-900/80 p-2.5 rounded-lg border border-neutral-800">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong>Enrutamiento SPA Limpio:</strong> Archivos <code className="text-amber-300">netlify.toml</code> y <code className="text-amber-300">_redirects</code> configurados para evitar errores 404 al recargar.
+                </div>
+              </div>
+              <div className="flex items-start gap-2 bg-neutral-900/80 p-2.5 rounded-lg border border-neutral-800">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong>Cabeceras de Seguridad HTTP:</strong> Protección contra XSS, Clickjacking e inyección vía cabeceras CSP configuradas en Netlify.
+                </div>
+              </div>
+              <div className="flex items-start gap-2 bg-neutral-900/80 p-2.5 rounded-lg border border-neutral-800">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong>Reglas de Firestore (ABAC):</strong> Solo <code className="text-amber-300">hrgq.1984@gmail.com</code> tiene privilegios de superadmin a nivel base de datos.
+                </div>
+              </div>
+              <div className="flex items-start gap-2 bg-neutral-900/80 p-2.5 rounded-lg border border-neutral-800">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong>Garantía de 24 Horas:</strong> Las modificaciones del cliente se congelan tras la confirmación del pago para evitar fraudes en eventos en vivo.
+                </div>
+              </div>
             </div>
           </div>
         </div>

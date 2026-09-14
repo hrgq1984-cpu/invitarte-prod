@@ -184,7 +184,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
     const icsContent = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//InvitArte//Digital Invitation//ES',
+      'PRODID:-//TuInvitacionDigital//Digital Invitation//ES',
       'BEGIN:VEVENT',
       `SUMMARY:${currentEventSettings.title} - ${currentEventSettings.honoreeName}`,
       `DESCRIPTION:${currentEventSettings.initialPhrase}`,
@@ -802,7 +802,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
           </div>
 
           <p className="text-[10px] text-neutral-400">
-            Invitación Digital interactiva creada con InvitArte • Respaldo privado y seguro
+            Invitación Digital interactiva creada con TuInvitacionDigital • Respaldo privado y seguro
           </p>
         </footer>
       </div>

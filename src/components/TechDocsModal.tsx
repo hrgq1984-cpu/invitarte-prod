@@ -38,7 +38,7 @@ export const TechDocsModal: React.FC<TechDocsModalProps> = ({ onClose }) => {
           </div>
           <div>
             <h2 className="text-xl sm:text-2xl font-cinzel font-bold text-white">
-              Documentación Técnica de la Plataforma InvitArte
+              Documentación Técnica de la Plataforma TuInvitacionDigital
             </h2>
             <p className="text-neutral-400 text-xs">
               Arquitectura de software, integración continua en Netlify, backend en Firebase y directrices de mantenimiento.
@@ -107,7 +107,7 @@ export const TechDocsModal: React.FC<TechDocsModalProps> = ({ onClose }) => {
                 1. Arquitectura del Sistema
               </h3>
               <p className="text-neutral-300 leading-relaxed">
-                InvitArte está construida bajo una arquitectura orientada a componentes modulares de alto rendimiento con renderizado del lado del cliente y sincronización asíncrona a bases de datos NoSQL:
+                TuInvitacionDigital está construida bajo una arquitectura orientada a componentes modulares de alto rendimiento con renderizado del lado del cliente y sincronización asíncrona a bases de datos NoSQL:
               </p>
               <ul className="list-disc pl-5 space-y-1.5 text-neutral-300">
                 <li><strong>Frontend:</strong> React 18 con TypeScript y Vite. Modularizado en componentes (`InvitationView`, `MobileMockup`, `HeroCatalog`, `ClientDashboard`, `AdminDashboard`, `TvModeView`).</li>

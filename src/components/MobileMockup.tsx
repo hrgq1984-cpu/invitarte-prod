@@ -10,7 +10,11 @@ import {
   Tv,
   X,
   ShoppingBag,
-  Filter
+  Filter,
+  Info,
+  Check,
+  ChevronDown,
+  Layers
 } from 'lucide-react';
 import { InvitationView } from './InvitationView';
 import { useStore } from '../lib/store';
@@ -42,6 +46,7 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
 }) => {
   const { currentProject, templates, plans, previewTemplate } = useStore();
   const [fullscreen, setFullscreen] = useState(false);
+  const [showPlanDetails, setShowPlanDetails] = useState(false);
   const [guestToken, setGuestToken] = useState('fam-gomez-pereyra');
   const [selectedCategory, setSelectedCategory] = useState<'todos' | EventType>('todos');
 
@@ -100,44 +105,120 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
   return (
     <div className="py-4 sm:py-6 px-3 sm:px-6 max-w-7xl mx-auto flex flex-col items-center">
       
-      {/* 1. TOP PROMINENT NAVIGATION & CONTROLS (Always accessible) */}
-      <div className="w-full max-w-5xl mb-4 bg-neutral-900/90 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-neutral-800 shadow-xl flex flex-wrap items-center justify-between gap-3">
-        {/* Back Button */}
-        {onBackToCatalog && (
-          <button
-            id="btn-back-to-catalog"
-            onClick={onBackToCatalog}
-            className="px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-2 text-xs font-bold transition-all shadow-sm active:scale-95"
-            title="Volver a la lista de modelos y planes"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Volver al Catálogo</span>
-          </button>
-        )}
+      {/* 1. TOP PROMINENT NAVIGATION & CONTROLS WITH PLAN CLARIFICATION */}
+      <div className="w-full max-w-5xl mb-4 bg-neutral-900/95 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-neutral-800 shadow-xl flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Back Button */}
+          {onBackToCatalog && (
+            <button
+              id="btn-back-to-catalog"
+              onClick={onBackToCatalog}
+              className="px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-2 text-xs font-bold transition-all shadow-sm active:scale-95"
+              title="Volver a la lista de modelos y planes"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Volver al Catálogo</span>
+            </button>
+          )}
 
-        {/* Current Model Status Pill */}
-        <div className="flex items-center gap-2 text-xs">
-          <div className="hidden sm:flex items-center gap-1.5 text-neutral-400">
-            <span>Modelo:</span>
-            <span className="text-white font-bold">{currentTemplate.name}</span>
-            <span className="text-neutral-500">({currentTemplate.sampleHonoree})</span>
+          {/* Current Model Status Pill & Plan Clarification */}
+          <div className="flex items-center flex-wrap gap-2 text-xs">
+            <div className="hidden sm:flex items-center gap-1.5 text-neutral-400">
+              <span>Modelo:</span>
+              <span className="text-white font-bold">{currentTemplate.name}</span>
+              <span className="text-neutral-500">({currentTemplate.sampleHonoree})</span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className={`px-3 py-1 rounded-lg border font-bold uppercase tracking-wider text-[11px] shadow-sm flex items-center gap-1.5 ${
+                currentPlan.id === 'oro'
+                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                  : currentPlan.id === 'plata'
+                  ? 'bg-blue-500/20 border-blue-500/50 text-blue-300'
+                  : 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+              }`}>
+                <Layers className="w-3.5 h-3.5" />
+                <span>Incluido en {currentPlan.name}</span>
+                <span className="text-white/80 font-mono">(${currentPlan.price.toLocaleString('es-AR')} ARS)</span>
+              </span>
+
+              <button
+                onClick={() => setShowPlanDetails(!showPlanDetails)}
+                className="px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-medium border border-neutral-700 flex items-center gap-1 transition-colors"
+                title="Ver qué incluye este plan"
+              >
+                <Info className="w-3.5 h-3.5 text-amber-400" />
+                <span>¿Qué incluye?</span>
+                <ChevronDown className={`w-3 h-3 transition-transform ${showPlanDetails ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
           </div>
-          <span className="px-2.5 py-1 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold uppercase tracking-wide text-[10px]">
-            Plan {currentPlan.name} (${currentPlan.price.toLocaleString('es-AR')} ARS)
-          </span>
+
+          {/* CTA: Order this template */}
+          {onSelectTemplateForOrder && (
+            <button
+              id="btn-order-this-template"
+              onClick={() => onSelectTemplateForOrder(currentTemplate, currentTemplate.requiredPlan)}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-400 hover:from-amber-400 hover:to-yellow-300 text-neutral-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-950/40 transition-all active:scale-95 ml-auto sm:ml-0"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>Contratar este Modelo</span>
+            </button>
+          )}
         </div>
 
-        {/* CTA: Order this template */}
-        {onSelectTemplateForOrder && (
-          <button
-            id="btn-order-this-template"
-            onClick={() => onSelectTemplateForOrder(currentTemplate, currentTemplate.requiredPlan)}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-400 hover:from-amber-400 hover:to-yellow-300 text-neutral-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-950/40 transition-all active:scale-95"
-          >
-            <ShoppingBag className="w-4 h-4" />
-            <span>Contratar este Modelo</span>
-          </button>
-        )}
+        {/* Plan Clarification Banner: Highlights what this plan includes in the demo */}
+        <div className={`p-3 rounded-xl border transition-all text-xs ${
+          currentPlan.id === 'oro'
+            ? 'bg-amber-950/30 border-amber-500/30 text-amber-200'
+            : currentPlan.id === 'plata'
+            ? 'bg-blue-950/30 border-blue-500/30 text-blue-200'
+            : 'bg-emerald-950/30 border-emerald-500/30 text-emerald-200'
+        }`}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="font-semibold text-white">
+                Esta demostración corresponde al <strong className="text-amber-300">{currentPlan.name}</strong>:
+              </span>
+              <span className="hidden md:inline text-neutral-300">
+                {currentPlan.description}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-[11px]">
+              {currentPlan.hasEnvelopeAnimation && (
+                <span className="flex items-center gap-1 text-amber-300 font-medium">
+                  <Check className="w-3.5 h-3.5" /> Sobre Animado & Lacre
+                </span>
+              )}
+              {currentPlan.hasTvMode && (
+                <span className="flex items-center gap-1 text-amber-300 font-medium">
+                  <Check className="w-3.5 h-3.5" /> Modo TV para Fiesta
+                </span>
+              )}
+              {currentPlan.hasGuestbook && (
+                <span className="flex items-center gap-1 text-amber-300 font-medium">
+                  <Check className="w-3.5 h-3.5" /> Libro de Deseos
+                </span>
+              )}
+              <span className="flex items-center gap-1 text-amber-300 font-medium">
+                <Check className="w-3.5 h-3.5" /> Hasta {currentPlan.maxGuests} invitados
+              </span>
+            </div>
+          </div>
+
+          {/* Expanded Features List */}
+          {showPlanDetails && (
+            <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-[11px] text-neutral-200 animate-in fade-in">
+              {currentPlan.features.map((feat, idx) => (
+                <div key={idx} className="flex items-start gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <span>{feat}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 2. CATEGORY SELECTOR & QUICK TEMPLATE SWITCHER */}

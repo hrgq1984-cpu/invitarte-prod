@@ -222,8 +222,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           {paymentMethod === 'transfer' && (
             <div className="p-4 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-2 text-[11px] text-neutral-300">
               <div className="font-bold text-white text-xs">Datos Bancarios para la Transferencia:</div>
-              <div><strong>Titular:</strong> InvitArte Oficial (HRGQ)</div>
-              <div><strong>Alias:</strong> <code className="text-amber-300 bg-neutral-900 px-1 py-0.5 rounded">INVITARTE.OFICIAL.MP</code></div>
+              <div><strong>Titular:</strong> TuInvitacionDigital Oficial (HRGQ)</div>
+              <div><strong>Alias:</strong> <code className="text-amber-300 bg-neutral-900 px-1 py-0.5 rounded">TUINVITACION.OFICIAL.MP</code></div>
               <div><strong>CVU:</strong> <code className="text-amber-300 bg-neutral-900 px-1 py-0.5 rounded">0000003100012345678901</code></div>
               <div><strong>Email de Confirmación:</strong> hrgq.1984@gmail.com</div>
 

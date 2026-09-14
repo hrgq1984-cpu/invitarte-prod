@@ -131,11 +131,11 @@ function AppContent() {
           {/* Brand & Mission */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-neutral-950 font-cinzel font-bold text-sm shadow-md">
-                IA
+              <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-neutral-950 font-cinzel font-bold text-xs shadow-md">
+                TID
               </div>
               <span className="font-cinzel text-lg font-bold text-white tracking-wider">
-                InvitArte
+                TuInvitacionDigital
               </span>
             </div>
             <p className="text-neutral-400 text-xs leading-relaxed">
@@ -155,7 +155,7 @@ function AppContent() {
             <ul className="space-y-2 text-xs text-neutral-300">
               <li>
                 <a
-                  href="https://wa.me/5493835438603?text=Hola%20InvitArte,%20quisiera%20consultar%20por%20una%20invitaci%C3%B3n%20digital"
+                  href="https://wa.me/5493835438603?text=Hola%20TuInvitacionDigital,%20quisiera%20consultar%20por%20una%20invitaci%C3%B3n%20digital"
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center gap-2 hover:text-emerald-400 transition-colors"
@@ -246,7 +246,7 @@ function AppContent() {
 
         <div className="max-w-7xl mx-auto pt-6 border-t border-neutral-800/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-neutral-500">
           <div>
-            © {new Date().getFullYear()} InvitArte. Todos los derechos reservados.
+            © {new Date().getFullYear()} TuInvitacionDigital. Todos los derechos reservados.
           </div>
           <div className="flex items-center gap-4">
             <button onClick={() => setShowDocsModal(true)} className="hover:text-neutral-300 transition-colors">

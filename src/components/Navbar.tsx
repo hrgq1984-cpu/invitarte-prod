@@ -101,12 +101,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-3 cursor-pointer select-none" 
             onClick={() => handleNav('catalog')}
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 via-amber-500 to-yellow-300 flex items-center justify-center shadow-lg shadow-amber-950/40 text-neutral-950 font-cinzel font-bold text-xl">
-              IA
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 via-amber-500 to-yellow-300 flex items-center justify-center shadow-lg shadow-amber-950/40 text-neutral-950 font-cinzel font-bold text-lg">
+              TID
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-cinzel text-lg font-bold tracking-wider text-amber-200">InvitArte</span>
+                <span className="font-cinzel text-base sm:text-lg font-bold tracking-wider text-amber-200">TuInvitacionDigital</span>
                 <span className="text-[10px] font-semibold uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
                   Eventos
                 </span>
