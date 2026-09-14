@@ -26,18 +26,20 @@ import {
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { ambientAudio } from '../lib/audioSynth';
-import { EventSettings, Guest, Plan } from '../types';
+import { EventSettings, Guest, Plan, DesignTemplate } from '../types';
 
 interface InvitationViewProps {
   guestToken?: string;
   isMockupFrame?: boolean;
   onOpenTvMode?: () => void;
+  activeTemplate?: DesignTemplate;
 }
 
 export const InvitationView: React.FC<InvitationViewProps> = ({ 
   guestToken, 
   isMockupFrame = false,
-  onOpenTvMode 
+  onOpenTvMode,
+  activeTemplate
 }) => {
   const { 
     currentProject, 
@@ -51,14 +53,16 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
     submitRsvp 
   } = useStore();
 
-  const plan = plans.find(p => p.id === currentProject.planId) || plans[0];
+  // Resolve active plan dynamically based on activeTemplate if provided, or currentProject
+  const plan = activeTemplate
+    ? plans.find(p => p.id === activeTemplate.requiredPlan) || plans[0]
+    : (plans.find(p => p.id === currentProject.planId) || plans[0]);
 
   // Specific invited guest if token matches
   const guest = guests.find(g => g.inviteToken === guestToken) || guests[0] || null;
 
-  // Envelope state (only for Plan Oro)
+  // Envelope state (only active if plan has envelope animation)
   const [envelopeOpened, setEnvelopeOpened] = useState<boolean>(() => {
-    // If not plan Oro, don't block with envelope
     return !plan.hasEnvelopeAnimation;
   });
   const [isOpeningEnvelope, setIsOpeningEnvelope] = useState<boolean>(false);
@@ -291,30 +295,30 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
     >
       {/* 1. SOBRE DE APERTURA (Only if plan has envelope and not opened yet) */}
       {!envelopeOpened && plan.hasEnvelopeAnimation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className={`${isMockupFrame ? 'absolute inset-0 z-30 rounded-[38px]' : 'fixed inset-0 z-50'} flex items-center justify-center p-4 bg-neutral-950/90 backdrop-blur-md animate-in fade-in duration-300`}>
           <div className="w-full max-w-sm flex flex-col items-center text-center">
             
             <div 
-              className={`relative w-full aspect-[4/3] rounded-2xl shadow-2xl p-6 flex flex-col items-center justify-center border-2 border-amber-400/40 transition-all duration-700 ${
+              className={`relative w-full aspect-[4/3] rounded-2xl shadow-2xl p-5 sm:p-6 flex flex-col items-center justify-center border-2 border-amber-400/50 transition-all duration-700 ${
                 isOpeningEnvelope ? 'scale-105 -translate-y-4 opacity-90' : 'hover:scale-[1.02]'
               }`}
               style={{
                 backgroundColor: currentEventSettings.envelopeColor || '#c59b27',
-                backgroundImage: 'radial-gradient(circle at 50% 20%, rgba(255,255,255,0.2), transparent 70%)'
+                backgroundImage: 'radial-gradient(circle at 50% 20%, rgba(255,255,255,0.25), transparent 70%)'
               }}
             >
               {/* Envelope flap lines */}
               <div className="absolute top-0 left-0 right-0 h-1/2 border-b-2 border-amber-600/30 clip-triangle pointer-events-none" />
 
               {/* Guest destination badge */}
-              <div className="bg-neutral-950/40 backdrop-blur-md px-4 py-2 rounded-full border border-amber-300/40 text-amber-100 text-xs font-montserrat tracking-wide mb-4">
+              <div className="bg-neutral-950/50 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-amber-300/40 text-amber-100 text-xs font-montserrat tracking-wide mb-3">
                 {guest ? `Para: ${guest.name}` : 'Especialmente para ti y tu familia'}
               </div>
 
-              <div className="text-white text-base font-cinzel font-bold tracking-wider mb-2">
+              <div className="text-white text-base font-cinzel font-bold tracking-wider mb-1">
                 {currentEventSettings.title}
               </div>
-              <div className="text-amber-100 text-sm font-serif-luxury italic mb-6">
+              <div className="text-amber-100 text-sm font-serif-luxury italic mb-4">
                 {currentEventSettings.honoreeName}
               </div>
 
@@ -324,22 +328,39 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
                 onClick={handleOpenEnvelope}
                 disabled={isOpeningEnvelope}
                 className={`group relative w-16 h-16 rounded-full bg-gradient-to-tr from-amber-700 via-amber-600 to-yellow-400 border-2 border-yellow-200 shadow-xl flex items-center justify-center text-white transition-all transform active:scale-95 ${
-                  isOpeningEnvelope ? 'animate-spin' : 'hover:scale-110'
+                  isOpeningEnvelope ? 'animate-spin' : 'hover:scale-110 animate-pulse'
                 }`}
                 title="Toca para abrir la invitación y comenzar la música"
               >
                 <div className="w-12 h-12 rounded-full border border-yellow-300/40 flex items-center justify-center font-cinzel font-bold text-lg shadow-inner">
                   {currentEventSettings.waxSealText || 'ST'}
                 </div>
-                {/* Floating click prompt pill */}
-                <div className="absolute -bottom-8 whitespace-nowrap bg-amber-950/80 text-amber-200 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border border-amber-500/40 group-hover:bg-amber-900 transition-colors">
-                  Toca para Abrir ✨
-                </div>
               </button>
             </div>
 
-            <p className="mt-8 text-neutral-400 text-xs font-montserrat">
-              Al pulsar el sello se iniciará la melodía de fondo.
+            {/* Clear Action Buttons */}
+            <div className="mt-5 w-full max-w-xs space-y-2">
+              <button
+                id="btn-open-envelope-action"
+                onClick={handleOpenEnvelope}
+                disabled={isOpeningEnvelope}
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-neutral-950 font-bold text-xs shadow-lg shadow-amber-950/50 flex items-center justify-center gap-2 transition-transform active:scale-95"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>{isOpeningEnvelope ? 'Abriendo Sobre...' : 'Abrir Sobre con Música'}</span>
+              </button>
+
+              <button
+                id="btn-skip-envelope"
+                onClick={() => setEnvelopeOpened(true)}
+                className="w-full py-1.5 text-xs text-amber-200/80 hover:text-white transition-colors underline underline-offset-4"
+              >
+                Ver invitación directamente (Saltar sobre) ⏩
+              </button>
+            </div>
+
+            <p className="mt-3 text-neutral-400 text-[11px] font-montserrat">
+              Al pulsar se reproducirá la melodía y podrás recorrer todo el contenido.
             </p>
           </div>
         </div>
@@ -369,6 +390,16 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             >
               {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </button>
+
+            {plan.hasEnvelopeAnimation && (
+              <button
+                onClick={() => setEnvelopeOpened(false)}
+                className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300/80 text-[10px] font-semibold hover:bg-amber-200 transition-colors"
+                title="Volver a ver la apertura de sobre"
+              >
+                ✉️ Sobre
+              </button>
+            )}
 
             {plan.hasTvMode && onOpenTvMode && (
               <button

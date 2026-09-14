@@ -25,6 +25,7 @@ interface MobileMockupProps {
   onOpenTvMode?: () => void;
   onBackToCatalog?: () => void;
   onSelectTemplateForOrder?: (template: DesignTemplate, planId: PlanTier) => void;
+  onTemplateChange?: (templateId: string) => void;
 }
 
 const CATEGORY_TABS: { id: 'todos' | EventType; label: string }[] = [
@@ -42,7 +43,8 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
   initialTemplateId,
   onOpenTvMode, 
   onBackToCatalog,
-  onSelectTemplateForOrder
+  onSelectTemplateForOrder,
+  onTemplateChange
 }) => {
   const { currentProject, templates, plans, previewTemplate } = useStore();
   const [fullscreen, setFullscreen] = useState(false);
@@ -50,14 +52,15 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
   const [guestToken, setGuestToken] = useState('fam-gomez-pereyra');
   const [selectedCategory, setSelectedCategory] = useState<'todos' | EventType>('todos');
 
-  // Active template resolution
-  const activeTemplateId = initialTemplateId || currentProject.templateId || templates[0].id;
-  const currentTemplate = templates.find(t => t.id === activeTemplateId) || templates[0];
-  const currentPlan = plans.find(p => p.id === currentTemplate.requiredPlan) || plans[0];
+  // Dynamic selected template state
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
+    initialTemplateId || currentProject.templateId || templates[0].id
+  );
 
-  // Set initial template if provided
+  // Synchronize when initialTemplateId prop changes from outside (e.g. catalog click)
   useEffect(() => {
     if (initialTemplateId) {
+      setSelectedTemplateId(initialTemplateId);
       const tmpl = templates.find(t => t.id === initialTemplateId);
       if (tmpl) {
         previewTemplate(tmpl);
@@ -65,6 +68,10 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
       }
     }
   }, [initialTemplateId]);
+
+  // Current template and plan resolved dynamically from selectedTemplateId
+  const currentTemplate = templates.find(t => t.id === selectedTemplateId) || templates[0];
+  const currentPlan = plans.find(p => p.id === currentTemplate.requiredPlan) || plans[0];
 
   // Handle ESC key to exit fullscreen
   useEffect(() => {
@@ -82,10 +89,16 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
     ? templates 
     : templates.filter(t => t.eventType === selectedCategory);
 
-  const currentIndex = filteredTemplates.findIndex(t => t.id === currentTemplate.id);
-
   const handleSelectTemplate = (tmpl: DesignTemplate) => {
+    setSelectedTemplateId(tmpl.id);
     previewTemplate(tmpl);
+    if (onTemplateChange) {
+      onTemplateChange(tmpl.id);
+    }
+    const phoneViewport = document.getElementById('mobile-viewport-scroll');
+    if (phoneViewport) {
+      phoneViewport.scrollTop = 0;
+    }
   };
 
   const handlePrevTemplate = () => {
@@ -273,8 +286,17 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
                     className="w-6 h-6 rounded-md object-cover flex-shrink-0 border border-white/10"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="truncate max-w-[130px]">
-                    <div className="truncate">{tmpl.name}</div>
+                  <div className="truncate max-w-[140px]">
+                    <div className="truncate flex items-center gap-1.5">
+                      <span>{tmpl.name}</span>
+                      <span className={`text-[9px] font-mono px-1 py-0.2 rounded font-bold uppercase ${
+                        tmpl.requiredPlan === 'oro' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                        tmpl.requiredPlan === 'plata' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                        'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      }`}>
+                        {tmpl.requiredPlan}
+                      </span>
+                    </div>
                     <div className="text-[10px] text-neutral-500 font-normal">{tmpl.sampleHonoree}</div>
                   </div>
                   {isSelected && (
@@ -347,6 +369,7 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
                 key={`${currentTemplate.id}-${guestToken}`}
                 guestToken={guestToken}
                 isMockupFrame={true} 
+                activeTemplate={currentTemplate}
                 onOpenTvMode={onOpenTvMode}
               />
             </div>

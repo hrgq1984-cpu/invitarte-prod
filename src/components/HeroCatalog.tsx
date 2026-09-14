@@ -154,7 +154,7 @@ export const HeroCatalog: React.FC<HeroCatalogProps> = ({ onSelectTemplate, onVi
                 </ul>
               </div>
 
-              <div className="pt-6">
+              <div className="pt-6 space-y-2">
                 <button
                   id={`btn-select-plan-${plan.id}`}
                   onClick={() => {
@@ -169,6 +169,30 @@ export const HeroCatalog: React.FC<HeroCatalogProps> = ({ onSelectTemplate, onVi
                 >
                   Contratar {plan.name}
                 </button>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      setSelectedPlanFilter(plan.id);
+                      const el = document.getElementById('catalogo-muestras');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="py-2 px-2 rounded-lg bg-neutral-900/90 hover:bg-neutral-800 text-[11px] font-medium text-neutral-300 border border-neutral-800 text-center transition-colors"
+                  >
+                    Ver Diseños ({templates.filter(t => t.requiredPlan === plan.id).length})
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const sample = templates.find(t => t.requiredPlan === plan.id) || templates[0];
+                      onViewDemo(sample);
+                    }}
+                    className="py-2 px-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-[11px] font-medium text-amber-300 border border-amber-500/30 text-center transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Eye className="w-3 h-3" />
+                    <span>Demo Móvil</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -176,7 +200,7 @@ export const HeroCatalog: React.FC<HeroCatalogProps> = ({ onSelectTemplate, onVi
       </section>
 
       {/* 3. CATÁLOGO DE MUESTRAS (21 MODELOS DISPONIBLES) */}
-      <section className="space-y-6 pt-6">
+      <section id="catalogo-muestras" className="space-y-6 pt-6">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <div className="text-xs font-bold text-amber-400 uppercase tracking-wider">
@@ -185,110 +209,184 @@ export const HeroCatalog: React.FC<HeroCatalogProps> = ({ onSelectTemplate, onVi
             <h2 className="text-2xl sm:text-3xl font-cinzel font-bold text-white">
               Explora Nuestro Catálogo
             </h2>
+            <p className="text-neutral-400 text-xs sm:text-sm font-montserrat mt-1">
+              Filtra por plan o por tipo de evento y prueba cómo se verá en el teléfono de tus invitados.
+            </p>
           </div>
 
           <div className="text-xs text-neutral-400 font-montserrat">
-            Mostrando {filteredTemplates.length} de 21 diseños disponibles
+            Mostrando <strong className="text-amber-300">{filteredTemplates.length}</strong> de 21 diseños disponibles
           </div>
         </div>
 
-        {/* Filter Bar by Event Type */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
-          {EVENT_TYPE_FILTERS.map(filter => (
+        {/* Filter Controls: By Plan and By Event */}
+        <div className="space-y-3 bg-neutral-900/60 p-4 rounded-2xl border border-neutral-800">
+          {/* Plan Filter Strip */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-neutral-400 mr-1">Filtrar por Plan:</span>
             <button
-              key={filter.id}
-              onClick={() => setSelectedEventType(filter.id)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                selectedEventType === filter.id
-                  ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/20'
-                  : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
+              onClick={() => setSelectedPlanFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                selectedPlanFilter === 'all'
+                  ? 'bg-white text-neutral-950 font-bold shadow'
+                  : 'bg-neutral-800 text-neutral-400 hover:text-white'
               }`}
             >
-              <span>{filter.icon}</span>
-              <span>{filter.label}</span>
+              Todos los Planes ({templates.length})
             </button>
-          ))}
+            {plans.map(p => {
+              const count = templates.filter(t => t.requiredPlan === p.id).length;
+              const isSelected = selectedPlanFilter === p.id;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedPlanFilter(p.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    isSelected
+                      ? p.id === 'oro'
+                        ? 'bg-amber-500 text-neutral-950 font-bold shadow-md shadow-amber-500/30'
+                        : p.id === 'plata'
+                        ? 'bg-blue-500 text-white font-bold shadow-md shadow-blue-500/30'
+                        : 'bg-emerald-500 text-white font-bold shadow-md shadow-emerald-500/30'
+                      : 'bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-700/50'
+                  }`}
+                >
+                  <span className="uppercase font-mono text-[10px]">{p.name}</span>
+                  <span className="text-[11px] opacity-80">({count})</span>
+                  <span className="text-[10px] font-mono opacity-70">${p.price.toLocaleString('es-AR')}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="w-full h-px bg-neutral-800/80" />
+
+          {/* Filter Bar by Event Type */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            <span className="text-xs font-semibold text-neutral-400 mr-1 flex-shrink-0">Tipo de Evento:</span>
+            {EVENT_TYPE_FILTERS.map(filter => (
+              <button
+                key={filter.id}
+                onClick={() => setSelectedEventType(filter.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  selectedEventType === filter.id
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 font-bold shadow-sm'
+                    : 'bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-700/50'
+                }`}
+              >
+                <span>{filter.icon}</span>
+                <span>{filter.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Grid of Templates */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTemplates.map((template) => (
-            <div
-              key={template.id}
-              className="bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden hover:border-amber-500/40 transition-all group flex flex-col justify-between"
-            >
-              {/* Image & Badges */}
-              <div className="relative aspect-[4/3] overflow-hidden bg-neutral-950">
-                <img
-                  src={template.previewImage}
-                  alt={template.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+          {filteredTemplates.map((template) => {
+            const templatePlan = plans.find(p => p.id === template.requiredPlan) || plans[0];
+            return (
+              <div
+                key={template.id}
+                className="bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden hover:border-amber-500/40 transition-all group flex flex-col justify-between"
+              >
+                {/* Image & Badges */}
+                <div className="relative aspect-[4/3] overflow-hidden bg-neutral-950">
+                  <img
+                    src={template.previewImage}
+                    alt={template.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent pointer-events-none" />
 
-                {/* Event Type & Required Plan Badge */}
-                <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                  <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-semibold border border-white/20 capitalize">
-                    {template.eventType}
-                  </span>
-                  <span className="px-2.5 py-1 rounded-full bg-amber-500/80 backdrop-blur-md text-neutral-950 text-[10px] font-bold uppercase tracking-wider">
-                    Plan {template.requiredPlan.toUpperCase()}
-                  </span>
+                  {/* Event Type & Required Plan Badge */}
+                  <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5">
+                    <span className="px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md text-white text-[11px] font-semibold border border-white/20 capitalize">
+                      {template.eventType}
+                    </span>
+                    <span className={`px-2.5 py-1 rounded-full backdrop-blur-md text-[10px] font-bold uppercase tracking-wider ${
+                      template.requiredPlan === 'oro'
+                        ? 'bg-amber-500/90 text-neutral-950 shadow-md shadow-amber-950/40'
+                        : template.requiredPlan === 'plata'
+                        ? 'bg-blue-500/90 text-white shadow-md shadow-blue-950/40'
+                        : 'bg-emerald-500/90 text-white shadow-md shadow-emerald-950/40'
+                    }`}>
+                      Plan {templatePlan.name} • ${templatePlan.price.toLocaleString('es-AR')}
+                    </span>
+                  </div>
+
+                  {/* Wax Seal Symbol */}
+                  <div className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-amber-600/90 border border-amber-300 text-white flex items-center justify-center text-sm shadow-lg">
+                    {template.waxSealSymbol}
+                  </div>
                 </div>
 
-                {/* Wax Seal Symbol */}
-                <div className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-amber-600/90 border border-amber-300 text-white flex items-center justify-center text-sm shadow-lg">
-                  {template.waxSealSymbol}
-                </div>
-              </div>
+                {/* Card Details */}
+                <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-cinzel font-bold text-white group-hover:text-amber-300 transition-colors">
+                        {template.name}
+                      </h3>
+                      
+                      {/* Palette preview dots */}
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: template.palette.primary }} />
+                        <div className="w-3 h-3 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: template.palette.secondary }} />
+                        <div className="w-3 h-3 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: template.palette.accent }} />
+                      </div>
+                    </div>
 
-              {/* Card Details */}
-              <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-cinzel font-bold text-white group-hover:text-amber-300 transition-colors">
-                      {template.name}
-                    </h3>
-                    
-                    {/* Palette preview dots */}
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: template.palette.primary }} />
-                      <div className="w-3 h-3 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: template.palette.secondary }} />
-                      <div className="w-3 h-3 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: template.palette.accent }} />
+                    <p className="text-xs text-neutral-400 font-montserrat line-clamp-2">
+                      {template.description}
+                    </p>
+
+                    <div className="text-[11px] text-neutral-500 font-serif-luxury italic">
+                      "{template.samplePhrase}"
+                    </div>
+
+                    {/* Features pill summary for this template's plan */}
+                    <div className="pt-1 flex flex-wrap gap-1.5 text-[10px]">
+                      {templatePlan.hasEnvelopeAnimation && (
+                        <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                          ✉️ Sobre animado
+                        </span>
+                      )}
+                      {templatePlan.hasTvMode && (
+                        <span className="px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                          📺 Modo TV Fiesta
+                        </span>
+                      )}
+                      <span className="px-2 py-0.5 rounded bg-neutral-800 text-neutral-300">
+                        👥 Hasta {templatePlan.maxGuests} personas
+                      </span>
                     </div>
                   </div>
 
-                  <p className="text-xs text-neutral-400 font-montserrat line-clamp-2">
-                    {template.description}
-                  </p>
+                  {/* Action Buttons */}
+                  <div className="pt-4 grid grid-cols-2 gap-2 text-xs font-montserrat">
+                    <button
+                      onClick={() => onViewDemo(template)}
+                      className="py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                      title="Probar en el simulador móvil"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Ver Demo Móvil</span>
+                    </button>
 
-                  <div className="text-[11px] text-neutral-500 font-serif-luxury italic">
-                    "{template.samplePhrase}"
+                    <button
+                      onClick={() => onSelectTemplate(template, template.requiredPlan)}
+                      className="py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                    >
+                      <span>Elegir Diseño</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-
-                {/* Action Buttons */}
-                <div className="pt-4 grid grid-cols-2 gap-2 text-xs font-montserrat">
-                  <button
-                    onClick={() => onViewDemo(template)}
-                    className="py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <Eye className="w-3.5 h-3.5 text-amber-400" />
-                    Ver Demo Móvil
-                  </button>
-
-                  <button
-                    onClick={() => onSelectTemplate(template, template.requiredPlan)}
-                    className="py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
-                  >
-                    <span>Elegir Diseño</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

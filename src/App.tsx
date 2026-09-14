@@ -112,6 +112,7 @@ function AppContent() {
             }}
             onSelectTemplateForOrder={handleOpenCheckout}
             onOpenTvMode={() => setShowTvMode(true)}
+            onTemplateChange={(tmplId) => setDemoTemplateId(tmplId)}
           />
         )}
 
