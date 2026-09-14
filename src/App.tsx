@@ -10,8 +10,7 @@ import { CheckoutModal } from './components/CheckoutModal';
 import { AuthModal } from './components/AuthModal';
 import { TechDocsModal } from './components/TechDocsModal';
 import { TestsRunnerModal } from './components/TestsRunnerModal';
-import { UrlPortalBar } from './components/UrlPortalBar';
-import { UrlGuideModal, BASE_NETLIFY_URL } from './components/UrlGuideModal';
+import { UrlGuideModal } from './components/UrlGuideModal';
 import { AdminLoginGate } from './components/AdminLoginGate';
 import { ClientLoginGate } from './components/ClientLoginGate';
 import { DesignTemplate, PlanTier } from './types';
@@ -136,13 +135,6 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-[#0d0d11] text-neutral-100 flex flex-col selection:bg-amber-500 selection:text-neutral-950 font-montserrat">
       
-      {/* 0. DOMAIN URL PORTAL BAR (Direct access to /Maximo1822, /cliente, /) */}
-      <UrlPortalBar 
-        currentView={currentView}
-        onNavigateTo={handleNavigate}
-        onOpenUrlGuide={() => setShowUrlGuideModal(true)}
-      />
-
       {/* 1. TOP NAVIGATION */}
       <Navbar
         currentView={currentView}
@@ -151,7 +143,6 @@ function AppContent() {
         onOpenAuth={() => setShowAuthModal(true)}
         onOpenDocs={() => setShowDocsModal(true)}
         onOpenTests={() => setShowTestsModal(true)}
-        onOpenUrlGuide={() => setShowUrlGuideModal(true)}
       />
 
       {/* 2. MAIN VIEW SWITCHER */}

@@ -304,18 +304,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </>
             )}
 
-            {onOpenUrlGuide && (
-              <button
-                id="nav-tab-urls"
-                onClick={onOpenUrlGuide}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 text-amber-300/90 hover:text-amber-300 hover:bg-neutral-800/60"
-                title="Información de URLs del sistema (/Maximo1822, /cliente, /)"
-              >
-                <Link2 className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-[11px]">URLs</span>
-              </button>
-            )}
-
           </nav>
 
           {/* Right Area: Ambient Music + Role Badge / Actions */}
