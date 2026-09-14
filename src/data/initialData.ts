@@ -18,11 +18,11 @@ export const INITIAL_PLANS: Plan[] = [
       'Enlace público personalizado',
       'Vista optimizada para celular',
       'Botón directo para compartir por WhatsApp',
-      'Hasta 100 invitados cargados manualmente'
+      'Hasta 25 invitados'
     ],
     maxInvitationPhotos: 0,
     maxEventPhotos: 0,
-    maxGuests: 100,
+    maxGuests: 25,
     hasEnvelopeAnimation: false,
     hasTvMode: false,
     hasGuestbook: false,
@@ -40,6 +40,7 @@ export const INITIAL_PLANS: Plan[] = [
     description: 'Control total de invitados, galería fotográfica y libro de buenos deseos en tiempo real.',
     features: [
       'Todo lo incluido en el Plan Bronce',
+      'Hasta 50 invitados',
       'Carrusel de fotos de hasta 7 imágenes',
       'Fotos en alta definición sin marca de agua',
       'Libro de buenos deseos interactivo',
@@ -53,7 +54,7 @@ export const INITIAL_PLANS: Plan[] = [
     ],
     maxInvitationPhotos: 7,
     maxEventPhotos: 0,
-    maxGuests: 250,
+    maxGuests: 50,
     hasEnvelopeAnimation: false,
     hasTvMode: false,
     hasGuestbook: true,
@@ -71,6 +72,7 @@ export const INITIAL_PLANS: Plan[] = [
     description: 'La experiencia completa e inmersiva: sobre animado, pantalla TV interactiva para la fiesta y fotos en vivo.',
     features: [
       'Todo lo incluido en el Plan Plata',
+      'Más de 50 invitados (Ilimitados)',
       'Sobre animado interactivo con sello de cera y música al abrir',
       'Música de fondo con selector de temas y volumen',
       'Carrusel de hasta 15 fotos con vista Coverflow 3D',
@@ -85,7 +87,7 @@ export const INITIAL_PLANS: Plan[] = [
     ],
     maxInvitationPhotos: 15,
     maxEventPhotos: 100,
-    maxGuests: 500,
+    maxGuests: 9999,
     hasEnvelopeAnimation: true,
     hasTvMode: true,
     hasGuestbook: true,

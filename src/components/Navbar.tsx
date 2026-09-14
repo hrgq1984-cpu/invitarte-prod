@@ -25,6 +25,7 @@ export interface NavbarProps {
   onOpenAuth?: () => void;
   onOpenDocs?: () => void;
   onOpenTests?: () => void;
+  onOpenUrlGuide?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
@@ -35,7 +36,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenTvMode,
   onOpenAuth,
   onOpenDocs,
-  onOpenTests
+  onOpenTests,
+  onOpenUrlGuide
 }) => {
   const { currentUser, setCurrentUser, currentProject, projects, setSelectedProjectId, currentEventSettings } = useStore();
   const [showRoleMenu, setShowRoleMenu] = useState(false);

@@ -101,7 +101,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [plans, setPlans] = useState<Plan[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_plans`);
-    return saved ? JSON.parse(saved) : INITIAL_PLANS;
+    if (saved) {
+      try {
+        const parsed: Plan[] = JSON.parse(saved);
+        return INITIAL_PLANS.map(initPlan => {
+          const found = parsed.find(p => p.id === initPlan.id);
+          if (found) {
+            return {
+              ...initPlan,
+              price: typeof found.price === 'number' ? found.price : initPlan.price,
+              active: typeof found.active === 'boolean' ? found.active : initPlan.active
+            };
+          }
+          return initPlan;
+        });
+      } catch (e) {
+        return INITIAL_PLANS;
+      }
+    }
+    return INITIAL_PLANS;
   });
 
   const [templates] = useState<DesignTemplate[]>(INITIAL_TEMPLATES);
