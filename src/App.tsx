@@ -12,7 +12,8 @@ import { TechDocsModal } from './components/TechDocsModal';
 import { TestsRunnerModal } from './components/TestsRunnerModal';
 import { UrlPortalBar } from './components/UrlPortalBar';
 import { UrlGuideModal, BASE_NETLIFY_URL } from './components/UrlGuideModal';
-import { ADMIN_USER, DEMO_CLIENT_USER } from './lib/store';
+import { AdminLoginGate } from './components/AdminLoginGate';
+import { ClientLoginGate } from './components/ClientLoginGate';
 import { DesignTemplate, PlanTier } from './types';
 import { 
   Sparkles, 
@@ -30,7 +31,13 @@ import {
 } from 'lucide-react';
 
 function AppContent() {
-  const { currentProject, templates, previewTemplate, setSelectedProjectId, setCurrentUser } = useStore();
+  const { 
+    currentUser,
+    currentProject, 
+    templates, 
+    previewTemplate, 
+    setSelectedProjectId 
+  } = useStore();
 
   const [currentView, setCurrentView] = useState<'catalog' | 'demo' | 'client' | 'admin'>('catalog');
   const [demoTemplateId, setDemoTemplateId] = useState<string | null>(null);
@@ -51,15 +58,13 @@ function AppContent() {
       const hash = (window.location.hash || '').toLowerCase();
 
       // 1. URL Administrador: /Maximo1822
-      if (path.includes('/maximo1822') || hash.includes('maximo1822') || hash.includes('admin')) {
+      if (path.includes('/maximo1822') || hash.includes('maximo1822')) {
         setCurrentView('admin');
-        setCurrentUser(ADMIN_USER);
         document.title = 'Administrador General (/Maximo1822) | TuInvitacionDigital';
       } 
       // 2. URL Cliente Registrado: /cliente
-      else if (path.includes('/cliente') || hash.includes('cliente') || hash.includes('client')) {
+      else if (path.includes('/cliente') || hash.includes('cliente')) {
         setCurrentView('client');
-        setCurrentUser(DEMO_CLIENT_USER);
         document.title = 'Panel de Cliente (/cliente) | TuInvitacionDigital';
       } 
       // 3. Demo / Invitación interactiva del celular
@@ -84,18 +89,16 @@ function AppContent() {
       window.removeEventListener('popstate', handleUrlRoute);
       window.removeEventListener('hashchange', handleUrlRoute);
     };
-  }, [setCurrentUser]);
+  }, []);
 
   const handleNavigate = (view: 'catalog' | 'demo' | 'client' | 'admin') => {
     setCurrentView(view);
     let targetPath = '/';
     if (view === 'admin') {
       targetPath = '/Maximo1822';
-      setCurrentUser(ADMIN_USER);
       document.title = 'Administrador General (/Maximo1822) | TuInvitacionDigital';
     } else if (view === 'client') {
       targetPath = '/cliente';
-      setCurrentUser(DEMO_CLIENT_USER);
       document.title = 'Panel de Cliente (/cliente) | TuInvitacionDigital';
     } else if (view === 'demo') {
       targetPath = '/invitacion';
@@ -174,11 +177,29 @@ function AppContent() {
         )}
 
         {currentView === 'client' && (
-          <ClientDashboard />
+          currentUser.role === 'client' || currentUser.role === 'admin' ? (
+            <ClientDashboard />
+          ) : (
+            <ClientLoginGate
+              onSuccess={() => {
+                setCurrentView('client');
+              }}
+              onGoBack={() => handleNavigate('catalog')}
+            />
+          )
         )}
 
         {currentView === 'admin' && (
-          <AdminDashboard />
+          currentUser.role === 'admin' ? (
+            <AdminDashboard />
+          ) : (
+            <AdminLoginGate
+              onSuccess={() => {
+                setCurrentView('admin');
+              }}
+              onGoBack={() => handleNavigate('catalog')}
+            />
+          )
         )}
       </main>
 
@@ -306,17 +327,22 @@ function AppContent() {
           <div>
             © {new Date().getFullYear()} TuInvitacionDigital. Todos los derechos reservados.
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
             <button onClick={() => setShowUrlGuideModal(true)} className="text-amber-400 hover:text-amber-300 font-semibold transition-colors">
-              URLs Oficiales (/Maximo1822, /cliente, /)
+              URLs del Sistema
             </button>
             <span>•</span>
             <button onClick={() => setShowDocsModal(true)} className="hover:text-neutral-300 transition-colors">
-              Guía de Mantenimiento
+              Documentación
             </button>
             <span>•</span>
-            <button onClick={() => setShowAuthModal(true)} className="hover:text-neutral-300 transition-colors">
-              Acceso a la Cuenta
+            <button 
+              onClick={() => handleNavigate('admin')} 
+              className="text-neutral-500 hover:text-blue-400 transition-colors flex items-center gap-1"
+              title="Acceso exclusivo para el Administrador General (/Maximo1822)"
+            >
+              <ShieldCheck className="w-3 h-3 text-blue-500/60" />
+              <span>Admin (/Maximo1822)</span>
             </button>
           </div>
         </div>

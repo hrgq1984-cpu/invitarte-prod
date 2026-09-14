@@ -10,7 +10,8 @@ import {
   ChevronDown, 
   ChevronUp,
   Sparkles,
-  Link2
+  Link2,
+  Lock
 } from 'lucide-react';
 import { BASE_NETLIFY_URL } from './UrlGuideModal';
 
@@ -148,9 +149,9 @@ export const UrlPortalBar: React.FC<UrlPortalBarProps> = ({
                 ? 'bg-blue-600 text-white border-blue-400 shadow-sm'
                 : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800 hover:text-blue-300'
             }`}
-            title="Abrir URL Administrador: /Maximo1822"
+            title="Abrir URL Administrador: /Maximo1822 (Protegido por Clave)"
           >
-            <ShieldCheck className="w-3 h-3 text-blue-400" />
+            <Lock className="w-3 h-3 text-blue-400" />
             <span>/Maximo1822 (Admin)</span>
           </button>
 

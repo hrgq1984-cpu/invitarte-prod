@@ -26,28 +26,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, defaultMode = 'lo
     e.preventDefault();
     if (!email) return;
 
-    // Check if logging in as admin
-    const isAdmin = email.toLowerCase().includes('hrgq.1984@gmail.com') || email.toLowerCase().includes('admin');
-
+    // Normal client authentication
     setCurrentUser({
-      uid: isAdmin ? 'admin-root-01' : 'client-' + Date.now(),
+      id: 'client-' + Date.now(),
       email: email,
-      displayName: name || (isAdmin ? 'Administrador General' : 'Cliente'),
-      role: isAdmin ? 'admin' : 'client',
-      phone: isAdmin ? '5493835438603' : '5491144556677'
+      displayName: name || 'Cliente Registrado',
+      role: 'client',
+      phoneNumber: '5491144556677',
+      createdAt: new Date().toISOString()
     });
 
-    onClose();
-  };
-
-  const handleQuickAdminLogin = () => {
-    setCurrentUser({
-      uid: 'admin-root-01',
-      email: 'hrgq.1984@gmail.com',
-      displayName: 'Administrador General (HRGQ)',
-      role: 'admin',
-      phone: '5493835438603'
-    });
     onClose();
   };
 
@@ -143,16 +131,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, defaultMode = 'lo
           </button>
         </div>
 
-        {/* Quick Admin Shortcut for ease of review */}
-        <div className="pt-2">
-          <button
-            type="button"
-            onClick={handleQuickAdminLogin}
-            className="w-full py-2 rounded-xl bg-blue-950/40 hover:bg-blue-900/60 text-blue-300 border border-blue-800/60 flex items-center justify-center gap-2 text-[11px] font-semibold transition-colors"
-          >
-            <ShieldCheck className="w-4 h-4 text-blue-400" />
-            Acceso Rápido como Administrador General
-          </button>
+        {/* Admin secure URL note */}
+        <div className="pt-2 border-t border-neutral-800 text-center">
+          <p className="text-[11px] text-neutral-400">
+            ¿Eres el administrador? Acceso exclusivo y protegido en la URL:
+          </p>
+          <span className="inline-block mt-1 font-mono text-[11px] text-blue-400 font-semibold bg-blue-950/60 border border-blue-800/60 px-2 py-0.5 rounded-lg">
+            /Maximo1822
+          </span>
         </div>
 
       </div>

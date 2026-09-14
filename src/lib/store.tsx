@@ -28,6 +28,9 @@ import {
 interface StoreContextType {
   currentUser: User;
   setCurrentUser: (user: User) => void;
+  logout: () => void;
+  loginAdmin: (secretKey: string) => boolean;
+  loginClient: (emailOrCode?: string) => boolean;
   plans: Plan[];
   updatePlanPrice: (planId: PlanTier, newPrice: number) => void;
   templates: DesignTemplate[];
@@ -92,12 +95,61 @@ export const DEMO_GUEST_USER: User = {
   createdAt: '2026-09-12T15:00:00.000Z'
 };
 
+export const VISITOR_USER: User = {
+  id: 'visitor-public',
+  email: '',
+  displayName: 'Visitante Público',
+  role: 'guest',
+  createdAt: '2026-09-01T00:00:00.000Z'
+};
+
 const StoreContext = createContext<StoreContextType | null>(null);
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User>(() => {
-    return DEMO_CLIENT_USER;
+  const [currentUser, setCurrentUserState] = useState<User>(() => {
+    try {
+      const savedUser = localStorage.getItem(`${STORAGE_KEY}_auth_user`);
+      if (savedUser) {
+        return JSON.parse(savedUser);
+      }
+    } catch (e) {
+      // ignore
+    }
+    return VISITOR_USER;
   });
+
+  const setCurrentUser = (user: User) => {
+    setCurrentUserState(user);
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_auth_user`, JSON.stringify(user));
+    } catch (e) {}
+  };
+
+  const logout = () => {
+    setCurrentUserState(VISITOR_USER);
+    try {
+      localStorage.removeItem(`${STORAGE_KEY}_auth_user`);
+    } catch (e) {}
+  };
+
+  const loginAdmin = (secretKey: string): boolean => {
+    const clean = secretKey.trim().toLowerCase();
+    // Valid keys: 'maximo1822', 'admin1822', 'admin'
+    if (clean === 'maximo1822' || clean === 'admin1822' || clean === 'admin') {
+      setCurrentUser(ADMIN_USER);
+      return true;
+    }
+    return false;
+  };
+
+  const loginClient = (emailOrCode?: string): boolean => {
+    const clean = (emailOrCode || '').trim().toLowerCase();
+    if (clean && clean.includes('admin')) {
+      return false; // not client
+    }
+    setCurrentUser(DEMO_CLIENT_USER);
+    return true;
+  };
 
   const [plans, setPlans] = useState<Plan[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_plans`);
@@ -770,6 +822,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <StoreContext.Provider value={{
       currentUser,
       setCurrentUser,
+      logout,
+      loginAdmin,
+      loginClient,
       plans,
       updatePlanPrice,
       templates,

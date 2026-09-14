@@ -7,14 +7,16 @@ import {
   FileText, 
   Smartphone, 
   UserCheck, 
-  Sliders, 
   CheckCircle2, 
   Volume2, 
-  VolumeX,
-  User,
-  Link2
+  VolumeX, 
+  User, 
+  LogOut, 
+  Lock,
+  Link2,
+  DollarSign
 } from 'lucide-react';
-import { useStore, ADMIN_USER, DEMO_CLIENT_USER, DEMO_GUEST_USER } from '../lib/store';
+import { useStore } from '../lib/store';
 import { ambientAudio } from '../lib/audioSynth';
 
 export interface NavbarProps {
@@ -40,11 +42,19 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenTests,
   onOpenUrlGuide
 }) => {
-  const { currentUser, setCurrentUser, currentProject, projects, setSelectedProjectId, currentEventSettings } = useStore();
-  const [showRoleMenu, setShowRoleMenu] = useState(false);
+  const { 
+    currentUser, 
+    logout, 
+    currentProject, 
+    projects, 
+    setSelectedProjectId, 
+    currentEventSettings 
+  } = useStore();
+
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
 
   const current = currentView || activeTab || 'catalog';
+  const role = currentUser.role || 'guest';
 
   const handleNav = (tab: 'catalog' | 'client' | 'admin' | 'demo' | 'tv' | 'tests' | 'docs') => {
     if (tab === 'tv') {
@@ -82,6 +92,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    handleNav('catalog');
+  };
+
   const toggleMusic = () => {
     if (isPlayingMusic) {
       ambientAudio.pause();
@@ -110,8 +125,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-cinzel text-base sm:text-lg font-bold tracking-wider text-amber-200">TuInvitacionDigital</span>
-                <span className="text-[10px] font-semibold uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  Eventos
+                <span className={`text-[10px] font-semibold uppercase tracking-widest px-1.5 py-0.5 rounded border ${
+                  role === 'admin' 
+                    ? 'bg-blue-500/15 text-blue-300 border-blue-500/30' 
+                    : role === 'client'
+                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                    : 'bg-neutral-800 text-neutral-400 border-neutral-700'
+                }`}>
+                  {role === 'admin' ? '🛡️ Admin' : role === 'client' ? 'Cliente' : 'Oficial'}
                 </span>
               </div>
               <p className="text-[11px] text-neutral-400 font-montserrat hidden sm:block">
@@ -120,101 +141,184 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Navigation Links */}
+          {/* Dynamic Navigation Links strictly filtered by role */}
           <nav className="hidden lg:flex items-center gap-1 font-montserrat">
-            <button
-              id="nav-tab-catalog"
-              onClick={() => handleNav('catalog')}
-              className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
-                current === 'catalog' 
-                  ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm' 
-                  : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Catálogo y Planes
-            </button>
+            
+            {/* 1. VISITOR ROLE LINKS (Default public state) */}
+            {role === 'guest' && (
+              <>
+                <button
+                  id="nav-tab-catalog"
+                  onClick={() => handleNav('catalog')}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    current === 'catalog' 
+                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm' 
+                      : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Catálogo de Diseños
+                </button>
 
-            <button
-              id="nav-tab-demo"
-              onClick={() => handleNav('demo')}
-              className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
-                current === 'demo' 
-                  ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm' 
-                  : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
-              }`}
-            >
-              <Smartphone className="w-3.5 h-3.5 text-amber-400" />
-              Demo Celular
-            </button>
+                <button
+                  id="nav-tab-demo"
+                  onClick={() => handleNav('demo')}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    current === 'demo' 
+                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm' 
+                      : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+                  Demo Celular
+                </button>
 
-            <button
-              id="nav-tab-client"
-              onClick={() => handleNav('client')}
-              className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
-                current === 'client' 
-                  ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm' 
-                  : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
-              }`}
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              Panel de Cliente
-            </button>
+                <button
+                  id="nav-tab-pricing-scroll"
+                  onClick={() => {
+                    handleNav('catalog');
+                    setTimeout(() => {
+                      document.getElementById('planes-section')?.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
+                  }}
+                  className="px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 text-neutral-300 hover:text-white hover:bg-neutral-800/60"
+                >
+                  <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                  Planes & Tarifas
+                </button>
+              </>
+            )}
 
-            <button
-              id="nav-tab-admin"
-              onClick={() => handleNav('admin')}
-              className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
-                current === 'admin' 
-                  ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm' 
-                  : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-              Admin General
-            </button>
+            {/* 2. CLIENT ROLE LINKS */}
+            {role === 'client' && (
+              <>
+                <button
+                  id="nav-tab-client"
+                  onClick={() => handleNav('client')}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    current === 'client' 
+                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm' 
+                      : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
+                  }`}
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  Mi Panel de Evento
+                </button>
 
-            <button
-              id="nav-tab-tv"
-              onClick={() => handleNav('tv')}
-              className="px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 text-neutral-300 hover:text-white hover:bg-neutral-800/60"
-            >
-              <Tv className="w-3.5 h-3.5 text-purple-400" />
-              Pantalla TV
-            </button>
+                <button
+                  id="nav-tab-demo"
+                  onClick={() => handleNav('demo')}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    current === 'demo' 
+                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm' 
+                      : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+                  Ver Invitación
+                </button>
 
-            <button
-              id="nav-tab-tests"
-              onClick={() => handleNav('tests')}
-              className="px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 text-neutral-300 hover:text-white hover:bg-neutral-800/60"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              Pruebas
-            </button>
+                <button
+                  id="nav-tab-tv"
+                  onClick={() => handleNav('tv')}
+                  className="px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 text-neutral-300 hover:text-white hover:bg-neutral-800/60"
+                >
+                  <Tv className="w-3.5 h-3.5 text-purple-400" />
+                  Pantalla TV
+                </button>
 
-            <button
-              id="nav-tab-docs"
-              onClick={() => handleNav('docs')}
-              className="px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 text-neutral-300 hover:text-white hover:bg-neutral-800/60"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              Docs
-            </button>
+                <button
+                  id="nav-tab-catalog"
+                  onClick={() => handleNav('catalog')}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    current === 'catalog' 
+                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm' 
+                      : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Ver Catálogo
+                </button>
+              </>
+            )}
+
+            {/* 3. ADMIN ROLE LINKS (Only available when logged in as admin) */}
+            {role === 'admin' && (
+              <>
+                <button
+                  id="nav-tab-admin"
+                  onClick={() => handleNav('admin')}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    current === 'admin' 
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm' 
+                      : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                  Panel Admin General
+                </button>
+
+                <button
+                  id="nav-tab-client-inspect"
+                  onClick={() => handleNav('client')}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    current === 'client' 
+                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' 
+                      : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
+                  }`}
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5 text-amber-400" />
+                  Inspeccionar Cliente
+                </button>
+
+                <button
+                  id="nav-tab-catalog"
+                  onClick={() => handleNav('catalog')}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                    current === 'catalog' 
+                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm' 
+                      : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Catálogo
+                </button>
+
+                <button
+                  id="nav-tab-tests"
+                  onClick={() => handleNav('tests')}
+                  className="px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 text-neutral-300 hover:text-white hover:bg-neutral-800/60"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Pruebas
+                </button>
+
+                <button
+                  id="nav-tab-docs"
+                  onClick={() => handleNav('docs')}
+                  className="px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 text-neutral-300 hover:text-white hover:bg-neutral-800/60"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Docs
+                </button>
+              </>
+            )}
 
             {onOpenUrlGuide && (
               <button
                 id="nav-tab-urls"
                 onClick={onOpenUrlGuide}
-                className="px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20"
-                title="Ver URLs del sistema (Admin /Maximo1822, Cliente /cliente, Visitante /)"
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 text-amber-300/90 hover:text-amber-300 hover:bg-neutral-800/60"
+                title="Información de URLs del sistema (/Maximo1822, /cliente, /)"
               >
                 <Link2 className="w-3.5 h-3.5 text-amber-400" />
-                <span>URLs</span>
+                <span className="text-[11px]">URLs</span>
               </button>
             )}
+
           </nav>
 
-          {/* Right Area: Music Toggle + Project Selector + Role Switcher + Auth */}
+          {/* Right Area: Ambient Music + Role Badge / Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
             
             {/* Ambient Music Button */}
@@ -231,8 +335,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="hidden xl:inline text-[11px]">{isPlayingMusic ? 'Música Activa' : 'Música'}</span>
             </button>
 
-            {/* Active project selector */}
-            {projects.length > 1 && (
+            {/* Active project selector for clients with multiple events or admin */}
+            {(role === 'admin' || (role === 'client' && projects.length > 1)) && (
               <select
                 id="select-active-project"
                 value={currentProject.id}
@@ -247,162 +351,156 @@ export const Navbar: React.FC<NavbarProps> = ({
               </select>
             )}
 
-            {/* Fast Role Switcher */}
-            <div className="relative">
-              <button
-                id="btn-role-switcher-toggle"
-                onClick={() => setShowRoleMenu(!showRoleMenu)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-neutral-700 hover:border-amber-500/50 bg-neutral-900 text-neutral-200 transition-colors"
-                title="Cambiar rol para probar permisos de Firebase"
-              >
-                <div className={`w-2 h-2 rounded-full ${
-                  currentUser.role === 'admin' ? 'bg-blue-400' :
-                  currentUser.role === 'client' ? 'bg-amber-400' : 'bg-emerald-400'
-                }`} />
-                <span className="capitalize font-semibold">{currentUser.role}</span>
-                <Sliders className="w-3.5 h-3.5 text-neutral-400 ml-1" />
-              </button>
+            {/* 1. VISITOR: Client Login Action */}
+            {role === 'guest' && (
+              <div className="flex items-center gap-2">
+                <button
+                  id="btn-nav-client-portal"
+                  onClick={() => handleNav('client')}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>Acceso Clientes</span>
+                </button>
+              </div>
+            )}
 
-              {showRoleMenu && (
-                <div className="absolute right-0 mt-2 w-72 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider px-2 py-1 border-b border-neutral-800 mb-1.5">
-                    Probar Roles & Permisos
-                  </div>
-                  
-                  {/* Admin role */}
-                  <button
-                    id="role-select-admin"
-                    onClick={() => {
-                      setCurrentUser(ADMIN_USER);
-                      setShowRoleMenu(false);
-                      handleNav('admin');
-                    }}
-                    className={`w-full text-left p-2 rounded-lg transition-colors flex items-start gap-2.5 ${
-                      currentUser.role === 'admin' ? 'bg-blue-500/15 border border-blue-500/30' : 'hover:bg-neutral-800'
-                    }`}
-                  >
-                    <ShieldCheck className="w-4 h-4 text-blue-400 mt-0.5" />
-                    <div>
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        Administrador General
-                        <span className="text-[10px] text-blue-400 font-mono">hrgq.1984@gmail.com</span>
-                      </div>
-                      <div className="text-[11px] text-neutral-400">
-                        Aprueba pagos, modera contenido, edita precios de planes.
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* Client role */}
-                  <button
-                    id="role-select-client"
-                    onClick={() => {
-                      setCurrentUser(DEMO_CLIENT_USER);
-                      setShowRoleMenu(false);
-                      handleNav('client');
-                    }}
-                    className={`w-full text-left p-2 rounded-lg transition-colors flex items-start gap-2.5 mt-1 ${
-                      currentUser.role === 'client' ? 'bg-amber-500/15 border border-amber-500/30' : 'hover:bg-neutral-800'
-                    }`}
-                  >
-                    <UserCheck className="w-4 h-4 text-amber-400 mt-0.5" />
-                    <div>
-                      <div className="text-xs font-bold text-white">
-                        Cliente (Dueño del Evento)
-                      </div>
-                      <div className="text-[11px] text-neutral-400">
-                        Edita fechas, invitados, fotos, solicita cambios en revisión de 24h.
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* Guest role */}
-                  <button
-                    id="role-select-guest"
-                    onClick={() => {
-                      setCurrentUser(DEMO_GUEST_USER);
-                      setShowRoleMenu(false);
-                      handleNav('demo');
-                    }}
-                    className={`w-full text-left p-2 rounded-lg transition-colors flex items-start gap-2.5 mt-1 ${
-                      currentUser.role === 'guest' ? 'bg-emerald-500/15 border border-emerald-500/30' : 'hover:bg-neutral-800'
-                    }`}
-                  >
-                    <Smartphone className="w-4 h-4 text-emerald-400 mt-0.5" />
-                    <div>
-                      <div className="text-xs font-bold text-white">
-                        Invitado (Familia Gómez)
-                      </div>
-                      <div className="text-[11px] text-neutral-400">
-                        Abre sobre, escucha música, confirma asistencia y deja buenos deseos.
-                      </div>
-                    </div>
-                  </button>
+            {/* 2. CLIENT: Profile Badge & Logout */}
+            {role === 'client' && (
+              <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-950/60 border border-amber-500/30 text-amber-300 text-xs font-medium">
+                  <UserCheck className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="truncate max-w-[120px]">{currentUser.displayName || 'Cliente'}</span>
                 </div>
-              )}
-            </div>
+                <button
+                  id="btn-logout-client"
+                  onClick={handleLogout}
+                  className="px-2.5 py-1.5 rounded-lg bg-neutral-900 border border-neutral-700 text-neutral-300 hover:text-white hover:border-red-500/50 hover:bg-red-950/20 text-xs flex items-center gap-1.5 transition-colors"
+                  title="Cerrar sesión de cliente"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Salir</span>
+                </button>
+              </div>
+            )}
 
-            {/* Auth Modal Trigger */}
-            {onOpenAuth && (
-              <button
-                onClick={onOpenAuth}
-                className="p-1.5 rounded-lg bg-neutral-900 border border-neutral-700 text-neutral-300 hover:text-white hover:border-amber-500/50 transition-colors"
-                title="Cuenta / Iniciar Sesión"
-              >
-                <User className="w-4 h-4" />
-              </button>
+            {/* 3. ADMIN: Super Admin Badge & Logout */}
+            {role === 'admin' && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-950/80 border border-blue-500/40 text-blue-300 text-xs font-mono">
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="hidden sm:inline font-bold">Horacio Gómez (Admin)</span>
+                  <span className="sm:hidden font-bold">Admin</span>
+                </div>
+                <button
+                  id="btn-logout-admin"
+                  onClick={handleLogout}
+                  className="px-2.5 py-1.5 rounded-lg bg-neutral-900 border border-neutral-700 text-neutral-300 hover:text-white hover:border-red-500/50 hover:bg-red-950/20 text-xs flex items-center gap-1.5 transition-colors"
+                  title="Cerrar sesión de Administrador"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-red-400" />
+                  <span className="hidden sm:inline">Salir Admin</span>
+                </button>
+              </div>
             )}
 
           </div>
         </div>
       </div>
 
-      {/* Mobile navigation row */}
+      {/* Mobile navigation row strictly filtered by role */}
       <div className="lg:hidden flex items-center justify-around border-t border-neutral-800/80 bg-neutral-950 px-2 py-2 text-xs overflow-x-auto">
-        <button
-          onClick={() => handleNav('catalog')}
-          className={`px-2.5 py-1.5 rounded-md flex items-center gap-1 ${current === 'catalog' ? 'text-amber-400 font-bold bg-neutral-800' : 'text-neutral-400'}`}
-        >
-          <Sparkles className="w-3.5 h-3.5" /> Planes
-        </button>
-        <button
-          onClick={() => handleNav('demo')}
-          className={`px-2.5 py-1.5 rounded-md flex items-center gap-1 ${current === 'demo' ? 'text-amber-400 font-bold bg-neutral-800' : 'text-neutral-400'}`}
-        >
-          <Smartphone className="w-3.5 h-3.5" /> Celular
-        </button>
-        <button
-          onClick={() => handleNav('client')}
-          className={`px-2.5 py-1.5 rounded-md flex items-center gap-1 ${current === 'client' ? 'text-amber-400 font-bold bg-neutral-800' : 'text-neutral-400'}`}
-        >
-          <LayoutDashboard className="w-3.5 h-3.5" /> Mi Panel
-        </button>
-        <button
-          onClick={() => handleNav('admin')}
-          className={`px-2.5 py-1.5 rounded-md flex items-center gap-1 ${current === 'admin' ? 'text-blue-400 font-bold bg-neutral-800' : 'text-neutral-400'}`}
-        >
-          <ShieldCheck className="w-3.5 h-3.5" /> Admin
-        </button>
-        <button
-          onClick={() => handleNav('tv')}
-          className="px-2.5 py-1.5 rounded-md flex items-center gap-1 text-purple-400 hover:bg-neutral-800"
-        >
-          <Tv className="w-3.5 h-3.5" /> TV
-        </button>
-        <button
-          onClick={() => handleNav('tests')}
-          className="px-2.5 py-1.5 rounded-md flex items-center gap-1 text-emerald-400 hover:bg-neutral-800"
-        >
-          <CheckCircle2 className="w-3.5 h-3.5" /> Tests
-        </button>
-        {onOpenUrlGuide && (
-          <button
-            onClick={onOpenUrlGuide}
-            className="px-2.5 py-1.5 rounded-md flex items-center gap-1 text-amber-400 hover:bg-neutral-800 font-semibold"
-            title="Ver URLs del sistema"
-          >
-            <Link2 className="w-3.5 h-3.5" /> URLs
-          </button>
+        {role === 'guest' && (
+          <>
+            <button
+              onClick={() => handleNav('catalog')}
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1 ${current === 'catalog' ? 'text-amber-400 font-bold bg-neutral-800' : 'text-neutral-400'}`}
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Catálogo
+            </button>
+            <button
+              onClick={() => handleNav('demo')}
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1 ${current === 'demo' ? 'text-amber-400 font-bold bg-neutral-800' : 'text-neutral-400'}`}
+            >
+              <Smartphone className="w-3.5 h-3.5" /> Celular
+            </button>
+            <button
+              onClick={() => handleNav('client')}
+              className="px-3 py-1.5 rounded-md flex items-center gap-1 text-amber-300 font-semibold bg-amber-500/10 border border-amber-500/30"
+            >
+              <User className="w-3.5 h-3.5" /> Acceso Clientes
+            </button>
+          </>
+        )}
+
+        {role === 'client' && (
+          <>
+            <button
+              onClick={() => handleNav('client')}
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1 ${current === 'client' ? 'text-amber-400 font-bold bg-neutral-800' : 'text-neutral-400'}`}
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" /> Mi Panel
+            </button>
+            <button
+              onClick={() => handleNav('demo')}
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1 ${current === 'demo' ? 'text-amber-400 font-bold bg-neutral-800' : 'text-neutral-400'}`}
+            >
+              <Smartphone className="w-3.5 h-3.5" /> Invitación
+            </button>
+            <button
+              onClick={() => handleNav('tv')}
+              className="px-3 py-1.5 rounded-md flex items-center gap-1 text-purple-400 hover:bg-neutral-800"
+            >
+              <Tv className="w-3.5 h-3.5" /> TV
+            </button>
+            <button
+              onClick={() => handleNav('catalog')}
+              className="px-3 py-1.5 rounded-md flex items-center gap-1 text-neutral-400 hover:bg-neutral-800"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Catálogo
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-2 py-1.5 rounded-md flex items-center gap-1 text-red-400 hover:bg-neutral-800"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Salir
+            </button>
+          </>
+        )}
+
+        {role === 'admin' && (
+          <>
+            <button
+              onClick={() => handleNav('admin')}
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1 ${current === 'admin' ? 'text-blue-400 font-bold bg-neutral-800' : 'text-neutral-400'}`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" /> Admin
+            </button>
+            <button
+              onClick={() => handleNav('client')}
+              className="px-3 py-1.5 rounded-md flex items-center gap-1 text-neutral-400 hover:bg-neutral-800"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" /> Cliente
+            </button>
+            <button
+              onClick={() => handleNav('catalog')}
+              className="px-3 py-1.5 rounded-md flex items-center gap-1 text-neutral-400 hover:bg-neutral-800"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Catálogo
+            </button>
+            <button
+              onClick={() => handleNav('tests')}
+              className="px-3 py-1.5 rounded-md flex items-center gap-1 text-emerald-400 hover:bg-neutral-800"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" /> Tests
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-2 py-1.5 rounded-md flex items-center gap-1 text-red-400 hover:bg-neutral-800"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Salir
+            </button>
+          </>
         )}
       </div>
     </header>
