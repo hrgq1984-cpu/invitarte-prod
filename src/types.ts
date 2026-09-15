@@ -200,6 +200,17 @@ export interface DisplaySettings {
   updatedAt: string;
 }
 
+export interface AdminNotification {
+  id: string;
+  type: 'order_created' | 'receipt_uploaded' | 'client_correction' | 'client_approved';
+  title: string;
+  message: string;
+  projectId: string;
+  paymentId?: string;
+  read: boolean;
+  createdAt: string;
+}
+
 export interface PaymentTransaction {
   id: string;
   projectId: string;
@@ -209,6 +220,7 @@ export interface PaymentTransaction {
   currency: string;
   status: 'pending' | 'review' | 'completed' | 'failed' | 'refunded';
   receiptUrl?: string;
+  receiptNotes?: string;
   paidAt?: string;
   createdAt: string;
 }

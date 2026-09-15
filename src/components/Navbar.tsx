@@ -14,7 +14,8 @@ import {
   LogOut, 
   Lock,
   Link2,
-  DollarSign
+  DollarSign,
+  Bell
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { ambientAudio } from '../lib/audioSynth';
@@ -48,7 +49,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     currentProject, 
     projects, 
     setSelectedProjectId, 
-    currentEventSettings 
+    currentEventSettings,
+    unreadAdminNotificationsCount
   } = useStore();
 
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
@@ -248,14 +250,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   id="nav-tab-admin"
                   onClick={() => handleNav('admin')}
-                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 relative ${
                     current === 'admin' 
                       ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm' 
                       : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-                  Panel Admin General
+                  <span>Panel Admin</span>
+                  {unreadAdminNotificationsCount > 0 && (
+                    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-extrabold text-[10px] animate-pulse">
+                      <Bell className="w-2.5 h-2.5" />
+                      {unreadAdminNotificationsCount}
+                    </span>
+                  )}
                 </button>
 
                 <button
@@ -323,13 +331,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="hidden xl:inline text-[11px]">{isPlayingMusic ? 'Música Activa' : 'Música'}</span>
             </button>
 
-            {/* Active project selector for clients with multiple events or admin */}
-            {(role === 'admin' || (role === 'client' && projects.length > 1)) && (
+            {/* Active project selector exclusively for admin */}
+            {role === 'admin' && (
               <select
                 id="select-active-project"
                 value={currentProject.id}
                 onChange={(e) => setSelectedProjectId(e.target.value)}
                 className="hidden md:block bg-neutral-900 border border-neutral-700 text-neutral-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-500"
+                title="Selector de pedidos y proyectos (Exclusivo Administrador)"
               >
                 {projects.map(p => (
                   <option key={p.id} value={p.id}>
@@ -460,9 +469,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           <>
             <button
               onClick={() => handleNav('admin')}
-              className={`px-3 py-1.5 rounded-md flex items-center gap-1 ${current === 'admin' ? 'text-blue-400 font-bold bg-neutral-800' : 'text-neutral-400'}`}
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1 relative ${current === 'admin' ? 'text-blue-400 font-bold bg-neutral-800' : 'text-neutral-400'}`}
             >
-              <ShieldCheck className="w-3.5 h-3.5" /> Admin
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Admin</span>
+              {unreadAdminNotificationsCount > 0 && (
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping absolute -top-0.5 -right-0.5" />
+              )}
             </button>
             <button
               onClick={() => handleNav('client')}

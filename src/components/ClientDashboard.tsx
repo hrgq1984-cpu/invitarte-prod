@@ -18,7 +18,10 @@ import {
   FileSpreadsheet,
   Check,
   RefreshCw,
-  HardDrive
+  HardDrive,
+  AlertTriangle,
+  Lock,
+  ArrowRight
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { Guest, EventSettings } from '../types';
@@ -60,6 +63,10 @@ export const ClientDashboard: React.FC = () => {
 
   // Copy toast state
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Invitation sending restriction: only allowed once admin approves payment
+  const canSendInvitations = currentProject.status === 'preview_available' || currentProject.status === 'published';
+  const [showLockedSendAlert, setShowLockedSendAlert] = useState(false);
 
   // Editable Event Settings State
   const [formData, setFormData] = useState<EventSettings>(currentEventSettings);
@@ -277,7 +284,7 @@ export const ClientDashboard: React.FC = () => {
       )}
 
       {/* PAYMENT REVIEW / PENDING CONFIRMATION BANNER */}
-      {(currentProject.status === 'payment_review' || currentProject.status === 'pending_payment') && (
+      {currentProject.status === 'payment_review' && (
         <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/60 to-neutral-900 border border-amber-500/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <Clock className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
@@ -286,13 +293,42 @@ export const ClientDashboard: React.FC = () => {
                 Comprobante de Transferencia en Verificación
               </div>
               <div className="text-neutral-300">
-                Tu pedido fue registrado con éxito. El administrador está verificando los datos de tu transferencia bancaria. Mientras tanto, ya puedes ir configurando los textos, música, lista de invitados y fotos de tu evento.
+                Tu comprobante fue enviado al administrador. En breve validará la acreditación para activar la vista previa interactiva. Mientras tanto, puedes personalizar todos los datos de tu evento.
               </div>
             </div>
           </div>
           <div className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 text-xs font-bold whitespace-nowrap border border-amber-500/30">
             En Verificación Bancaria
           </div>
+        </div>
+      )}
+
+      {/* REJECTED RECEIPT BANNER (pending_payment with notes) */}
+      {currentProject.status === 'pending_payment' && currentProject.correctionNotes && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-red-950/60 to-neutral-900 border border-red-500/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <div className="font-bold text-white text-sm">
+                Comprobante Observado por el Administrador
+              </div>
+              <div className="text-red-200 mt-0.5 font-medium">
+                {currentProject.correctionNotes}
+              </div>
+              <div className="text-neutral-400 mt-1">
+                Por favor, verifica la cuenta bancaria de destino y vuelve a adjuntar el comprobante correcto para habilitar tu servicio.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              const fileInput = document.getElementById('receipt-upload-input');
+              if (fileInput) fileInput.click();
+            }}
+            className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold whitespace-nowrap shadow-sm"
+          >
+            Reenviar Comprobante
+          </button>
         </div>
       )}
 
@@ -579,17 +615,84 @@ export const ClientDashboard: React.FC = () => {
               />
             </div>
           </div>
+
+          {/* Banner de Cierre de Carga de Datos */}
+          <div className="p-4 rounded-2xl bg-neutral-950 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4">
+            <div className="space-y-0.5">
+              <div className="text-white font-bold flex items-center gap-1.5 text-xs">
+                <CheckCircle className="w-4 h-4 text-amber-400" />
+                <span>¿Finalizaste de cargar los datos de la invitación?</span>
+              </div>
+              <p className="text-[11px] text-neutral-400">
+                Guarda los cambios y pasa a la lista de invitados. Una vez que el administrador verifique tu pago, se desbloquearán los envíos por WhatsApp.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold flex items-center gap-1.5 transition-colors shadow"
+              >
+                <Check className="w-4 h-4" />
+                Guardar Datos
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('guests')}
+                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 font-semibold flex items-center gap-1.5 transition-colors"
+              >
+                <span>Ir a Invitados</span>
+                <ArrowRight className="w-4 h-4 text-amber-400" />
+              </button>
+            </div>
+          </div>
         </form>
       )}
 
       {/* TAB 3: CONTROL DE INVITADOS */}
       {activeTab === 'guests' && (
         <div className="space-y-4">
+          {/* Alerta de bloqueo de envío si el pago aún no fue verificado */}
+          {!canSendInvitations && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/80 via-neutral-900 to-neutral-900 border border-amber-500/50 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 mt-0.5">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div className="text-xs space-y-1">
+                  <div className="font-bold text-white text-sm flex items-center gap-2">
+                    <span>Envíos de Invitación Restringidos por Verificación de Pago</span>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/30">
+                      {currentProject.status === 'payment_review' ? 'Pago en Verificación' : 'Pendiente de Pago'}
+                    </span>
+                  </div>
+                  <p className="text-neutral-300">
+                    Puedes continuar cargando o importando todos tus invitados y preparando sus cupos familiares. El botón de envío por WhatsApp se habilitará automáticamente tan pronto como el administrador verifique el pago de tu servicio contratado.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showLockedSendAlert && (
+            <div className="p-3 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-300 text-xs font-semibold flex items-center justify-between animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <Lock className="w-4 h-4 flex-shrink-0 text-amber-400" />
+                <span>Para enviar las invitaciones a tus invitados, el administrador debe validar primero el comprobante de pago de tu servicio contratado.</span>
+              </div>
+              <button 
+                onClick={() => setShowLockedSendAlert(false)} 
+                className="text-neutral-400 hover:text-white ml-2"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-cinzel font-bold text-white">Lista de Invitados & Cupos</h3>
               <p className="text-xs text-neutral-400">
-                Genera enlaces personalizados, registra confirmaciones y envía invitaciones por WhatsApp.
+                Genera enlaces personalizados, registra confirmaciones y {canSendInvitations ? 'envía invitaciones por WhatsApp.' : 'organiza a tus invitados mientras se valida el pago.'}
               </p>
             </div>
 
@@ -665,24 +768,48 @@ export const ClientDashboard: React.FC = () => {
                         </td>
                         <td className="p-3.5 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            <a
-                              href={getWhatsAppInviteUrl(g)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white"
-                              title="Enviar Invitación por WhatsApp"
-                            >
-                              <Send className="w-3.5 h-3.5" />
-                            </a>
-                            <a
-                              href={getWhatsAppReminderUrl(g)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white"
-                              title="Enviar Recordatorio por WhatsApp"
-                            >
-                              <MessageCircle className="w-3.5 h-3.5" />
-                            </a>
+                            {canSendInvitations ? (
+                              <>
+                                <a
+                                  href={getWhatsAppInviteUrl(g)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                                  title="Enviar Invitación por WhatsApp"
+                                >
+                                  <Send className="w-3.5 h-3.5" />
+                                </a>
+                                <a
+                                  href={getWhatsAppReminderUrl(g)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                                  title="Enviar Recordatorio por WhatsApp"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" />
+                                </a>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowLockedSendAlert(true)}
+                                  className="p-1.5 rounded-lg bg-neutral-800/80 text-neutral-500 hover:text-amber-300 hover:bg-neutral-800 cursor-not-allowed flex items-center gap-1"
+                                  title="Envío bloqueado: El administrador debe validar el pago del servicio antes de enviar a los invitados"
+                                >
+                                  <Lock className="w-3.5 h-3.5 text-amber-500/70" />
+                                  <Send className="w-3.5 h-3.5 opacity-40" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowLockedSendAlert(true)}
+                                  className="p-1.5 rounded-lg bg-neutral-800/80 text-neutral-500 hover:text-amber-300 hover:bg-neutral-800 cursor-not-allowed flex items-center gap-1"
+                                  title="Recordatorio bloqueado: Se habilitará tras la verificación del pago"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5 opacity-40" />
+                                </button>
+                              </>
+                            )}
                             <button
                               onClick={() => deleteGuest(currentProject.id, g.id)}
                               className="p-1.5 rounded-lg bg-neutral-800 hover:bg-red-950/60 text-neutral-400 hover:text-red-400"

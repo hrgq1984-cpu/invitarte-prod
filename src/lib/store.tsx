@@ -9,6 +9,7 @@ import {
   EventPhoto, 
   DisplaySettings, 
   PaymentTransaction,
+  AdminNotification,
   User,
   ProjectStatus,
   PlanTier,
@@ -54,9 +55,15 @@ interface StoreContextType {
   displaySettings: DisplaySettings;
   updateDisplaySettings: (projectId: string, settings: Partial<DisplaySettings>) => void;
   payments: PaymentTransaction[];
+  adminNotifications: AdminNotification[];
+  unreadAdminNotificationsCount: number;
+  markAdminNotificationAsRead: (id: string) => void;
+  markAllAdminNotificationsAsRead: () => void;
+  deleteAdminNotification: (id: string) => void;
   createOrder: (data: { eventType: EventType; templateId: string; planId: PlanTier; clientEmail: string; honoreeName: string }) => Project;
   submitPayment: (projectId: string, provider: 'mercadopago' | 'transfer', receiptUrl?: string) => PaymentTransaction;
   confirmPaymentAdmin: (paymentId: string) => void;
+  rejectPaymentAdmin: (paymentId: string, reason?: string) => void;
   approveProjectByClient: (projectId: string) => void;
   requestClientCorrection: (projectId: string, notes: string) => void;
   adminSetProjectStatus: (projectId: string, status: ProjectStatus) => void;
@@ -234,6 +241,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ];
   });
 
+  const [adminNotifications, setAdminNotifications] = useState<AdminNotification[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY}_admin_notifications`);
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'notif-welcome',
+        type: 'order_created',
+        title: '¡Bienvenido al Panel de Notificaciones!',
+        message: 'Aquí recibirás alertas inmediatas cada vez que un cliente contrate un plan o envíe un comprobante de transferencia bancaria.',
+        projectId: REFERENCE_PROJECT.id,
+        read: false,
+        createdAt: new Date().toISOString()
+      }
+    ];
+  });
+
   // Sync state changes with localStorage
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY}_plans`, JSON.stringify(plans));
@@ -262,6 +284,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY}_payments`, JSON.stringify(payments));
   }, [payments]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY}_admin_notifications`, JSON.stringify(adminNotifications));
+  }, [adminNotifications]);
+
+  const markAdminNotificationAsRead = (id: string) => {
+    setAdminNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const markAllAdminNotificationsAsRead = () => {
+    setAdminNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const deleteAdminNotification = (id: string) => {
+    setAdminNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const unreadAdminNotificationsCount = adminNotifications.filter(n => !n.read).length;
 
   // Current active project & settings
   const currentProject = projects.find(p => p.id === selectedProjectId) || projects[0] || REFERENCE_PROJECT;
@@ -503,15 +543,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setEventSettingsMap(prev => ({ ...prev, [projectId]: newSettings }));
     setSelectedProjectId(projectId);
 
+    // Create Admin Notification for newly contracted service
+    const planName = data.planId.toUpperCase();
+    const notif: AdminNotification = {
+      id: `notif-order-${Date.now()}`,
+      type: 'order_created',
+      title: `Nuevo Servicio Contratado (${planName})`,
+      message: `El cliente ${data.clientEmail || 'nuevo'} contrató la plantilla "${tmpl.name}" para "${data.honoreeName}" (Plan ${planName}).`,
+      projectId,
+      read: false,
+      createdAt: new Date().toISOString()
+    };
+    setAdminNotifications(prev => [notif, ...prev]);
+
     return newProject;
   };
 
   const submitPayment = (projectId: string, provider: 'mercadopago' | 'transfer', receiptUrl?: string): PaymentTransaction => {
     const proj = projects.find(p => p.id === projectId) || currentProject;
     const plan = plans.find(p => p.id === proj.planId) || plans[0];
+    const settings = eventSettingsMap[projectId] || REFERENCE_EVENT_SETTINGS;
 
+    const paymentId = `pay-${Date.now()}`;
     const newPayment: PaymentTransaction = {
-      id: `pay-${Date.now()}`,
+      id: paymentId,
       projectId,
       provider,
       providerPaymentId: provider === 'mercadopago' ? `MP-${Math.floor(10000000 + Math.random() * 90000000)}` : undefined,
@@ -543,6 +598,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         status: 'payment_review',
         updatedAt: new Date().toISOString()
       } : p));
+
+      // Emit high-priority notification to Administrator for bank transfer receipt validation
+      const notif: AdminNotification = {
+        id: `notif-receipt-${Date.now()}`,
+        type: 'receipt_uploaded',
+        title: receiptUrl ? 'Nuevo Comprobante de Transferencia' : 'Transferencia Bancaria Registrada',
+        message: `Se registró el pago de $${plan.price.toLocaleString('es-AR')} para "${settings.honoreeName}" (${proj.clientEmail}). Requiere validación de comprobante para habilitar la vista previa de 24h.`,
+        projectId,
+        paymentId,
+        read: false,
+        createdAt: new Date().toISOString()
+      };
+      setAdminNotifications(prev => [notif, ...prev]);
     }
 
     return newPayment;
@@ -569,6 +637,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       expiresAt: reviewDeadline.toISOString(),
       updatedAt: now.toISOString()
     } : p));
+
+    // Mark related notification as read if exists
+    setAdminNotifications(prev => prev.map(n => n.paymentId === paymentId ? { ...n, read: true } : n));
+  };
+
+  const rejectPaymentAdmin = (paymentId: string, reason?: string) => {
+    const pay = payments.find(p => p.id === paymentId);
+    if (!pay) return;
+
+    setPayments(prev => prev.map(p => p.id === paymentId ? {
+      ...p,
+      status: 'failed',
+      receiptNotes: reason || 'Comprobante no válido o importe insuficiente'
+    } : p));
+
+    setProjects(prev => prev.map(p => p.id === pay.projectId ? {
+      ...p,
+      status: 'pending_payment',
+      correctionNotes: reason || 'El comprobante de transferencia bancaria no pudo ser validado. Por favor, vuelve a subir el comprobante correcto.',
+      updatedAt: new Date().toISOString()
+    } : p));
+
+    // Mark related notification as read
+    setAdminNotifications(prev => prev.map(n => n.paymentId === paymentId ? { ...n, read: true } : n));
   };
 
   const approveProjectByClient = (projectId: string) => {
@@ -849,9 +941,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       displaySettings,
       updateDisplaySettings,
       payments,
+      adminNotifications,
+      unreadAdminNotificationsCount,
+      markAdminNotificationAsRead,
+      markAllAdminNotificationsAsRead,
+      deleteAdminNotification,
       createOrder,
       submitPayment,
       confirmPaymentAdmin,
+      rejectPaymentAdmin,
       approveProjectByClient,
       requestClientCorrection,
       adminSetProjectStatus,
