@@ -223,8 +223,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       {
         id: 'pay-ref-001',
         projectId: REFERENCE_PROJECT.id,
-        provider: 'mercadopago',
-        providerPaymentId: 'MP-98421054',
+        provider: 'transfer',
+        providerPaymentId: 'TRF-98421054',
         amount: 60000,
         currency: 'ARS',
         status: 'completed',

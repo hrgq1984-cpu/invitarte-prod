@@ -276,6 +276,26 @@ export const ClientDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* PAYMENT REVIEW / PENDING CONFIRMATION BANNER */}
+      {(currentProject.status === 'payment_review' || currentProject.status === 'pending_payment') && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/60 to-neutral-900 border border-amber-500/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <Clock className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
+            <div className="text-xs">
+              <div className="font-bold text-white text-sm">
+                Comprobante de Transferencia en Verificación
+              </div>
+              <div className="text-neutral-300">
+                Tu pedido fue registrado con éxito. El administrador está verificando los datos de tu transferencia bancaria. Mientras tanto, ya puedes ir configurando los textos, música, lista de invitados y fotos de tu evento.
+              </div>
+            </div>
+          </div>
+          <div className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 text-xs font-bold whitespace-nowrap border border-amber-500/30">
+            En Verificación Bancaria
+          </div>
+        </div>
+      )}
+
       {/* Navigation Sub-Tabs */}
       <div className="flex items-center gap-2 border-b border-neutral-800 pb-2 overflow-x-auto text-xs font-semibold">
         <button

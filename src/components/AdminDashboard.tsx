@@ -663,7 +663,21 @@ export const AdminDashboard: React.FC = () => {
                     <tr key={p.id} className="hover:bg-neutral-800/40 transition-colors">
                       <td className="p-3.5 font-mono text-white">{p.id}</td>
                       <td className="p-3.5 font-mono text-neutral-400">{p.projectId}</td>
-                      <td className="p-3.5 uppercase font-semibold text-neutral-300">{p.provider}</td>
+                      <td className="p-3.5">
+                        <span className="font-semibold text-neutral-300">
+                          {p.provider === 'transfer' ? 'Transferencia Bancaria' : p.provider}
+                        </span>
+                        {p.receiptUrl && (
+                          <a 
+                            href={p.receiptUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="block text-[10px] text-amber-400 hover:underline mt-0.5"
+                          >
+                            Ver Comprobante
+                          </a>
+                        )}
+                      </td>
                       <td className="p-3.5 font-bold text-amber-300 font-mono">
                         ${p.amount.toLocaleString('es-AR')} {p.currency}
                       </td>

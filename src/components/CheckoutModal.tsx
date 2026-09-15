@@ -3,7 +3,6 @@ import {
   X, 
   Check, 
   ShieldCheck, 
-  CreditCard, 
   Building2, 
   Sparkles, 
   Clock, 
@@ -29,9 +28,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onClose, 
   onSuccess 
 }) => {
-  const { plans, createNewProject } = useStore();
+  const { plans, createOrder, submitPayment } = useStore();
   const [selectedPlanId, setSelectedPlanId] = useState<PlanTier>(initialPlanId);
-  const [paymentMethod, setPaymentMethod] = useState<'mercadopago' | 'transfer'>('mercadopago');
+  const [paymentMethod] = useState<'transfer'>('transfer');
   
   // Form fields
   const [clientEmail, setClientEmail] = useState('');
@@ -71,18 +70,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     setLoading(true);
 
-    setTimeout(() => {
-      const newProj = createNewProject(
-        template.eventType,
-        selectedPlanId,
-        template.id,
-        clientEmail || 'cliente@ejemplo.com',
-        honoreeName || 'Mi Celebración',
-        eventDate || '2026-10-10'
-      );
+    try {
+      const newProj = createOrder({
+        eventType: template.eventType,
+        templateId: template.id,
+        planId: selectedPlanId,
+        clientEmail: clientEmail.trim() || 'cliente@ejemplo.com',
+        honoreeName: honoreeName.trim() || 'Mi Celebración'
+      });
+
+      // Submit payment record with bank transfer
+      submitPayment(newProj.id, 'transfer', receiptFile || undefined);
+
       setLoading(false);
       onSuccess(newProj.id);
-    }, 1000);
+    } catch (err) {
+      console.error('Error al procesar la orden:', err);
+      setLoading(false);
+      alert('Ocurrió un inconveniente al generar la orden. Por favor intente nuevamente.');
+    }
   };
 
   return (
@@ -193,38 +199,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           {/* Payment Method Selector */}
           <div>
             <label className="block text-neutral-400 mb-2 font-semibold">Método de Pago:</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('mercadopago')}
-                className={`p-3 rounded-xl border flex items-center gap-2.5 ${
-                  paymentMethod === 'mercadopago'
-                    ? 'bg-blue-950/40 border-blue-500 text-white'
-                    : 'bg-neutral-950 border-neutral-800 text-neutral-400'
-                }`}
-              >
-                <CreditCard className="w-5 h-5 text-blue-400" />
-                <div className="text-left">
-                  <div className="font-bold text-white">Mercado Pago</div>
-                  <div className="text-[10px] text-neutral-400">Tarjetas / Dinero en cuenta</div>
+            <div className="p-3 rounded-xl border bg-emerald-950/40 border-emerald-500 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                  <Building2 className="w-5 h-5" />
                 </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('transfer')}
-                className={`p-3 rounded-xl border flex items-center gap-2.5 ${
-                  paymentMethod === 'transfer'
-                    ? 'bg-emerald-950/40 border-emerald-500 text-white'
-                    : 'bg-neutral-950 border-neutral-800 text-neutral-400'
-                }`}
-              >
-                <Building2 className="w-5 h-5 text-emerald-400" />
-                <div className="text-left">
-                  <div className="font-bold text-white">Transferencia Bancaria</div>
-                  <div className="text-[10px] text-neutral-400">Alias / CVU con comprobante</div>
+                <div>
+                  <div className="font-bold text-white text-sm">Transferencia Bancaria</div>
+                  <div className="text-[10px] text-neutral-400">Depósito o transferencia por Alias / CBU con verificación</div>
                 </div>
-              </button>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                Oficial Habilitado
+              </span>
             </div>
           </div>
 
