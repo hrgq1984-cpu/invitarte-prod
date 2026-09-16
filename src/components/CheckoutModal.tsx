@@ -76,11 +76,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         templateId: template.id,
         planId: selectedPlanId,
         clientEmail: clientEmail.trim() || 'cliente@ejemplo.com',
-        honoreeName: honoreeName.trim() || 'Mi Celebración'
+        honoreeName: honoreeName.trim() || 'Mi Celebración',
+        clientPhone: clientPhone.trim(),
+        eventDate: eventDate || template.sampleDate,
+        receiptUrl: receiptFile || undefined,
+        paymentMethod: 'transfer'
       });
-
-      // Submit payment record with bank transfer
-      submitPayment(newProj.id, 'transfer', receiptFile || undefined);
 
       setLoading(false);
       onSuccess(newProj.id);

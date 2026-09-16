@@ -1,4 +1,4 @@
-import { Plan, DesignTemplate, Project, EventSettings, Guest, Blessing, EventPhoto } from '../types';
+import { Plan, DesignTemplate, Project, EventSettings, Guest, Blessing, EventPhoto, PaymentTransaction, AdminNotification } from '../types';
 
 export const INITIAL_PLANS: Plan[] = [
   {
@@ -579,14 +579,21 @@ export const INITIAL_TEMPLATES: DesignTemplate[] = [
 // Reference project for Primera Comunión ("Santiago Tomás")
 export const REFERENCE_PROJECT: Project = {
   id: 'proj-comunion-santiago-2026',
+  orderNumber: 'ORD-COMU-8921',
   clientId: 'client-hrgq-demo',
   clientEmail: 'hrgq.1984@gmail.com',
+  clientPhone: '+54 9 3835 438603',
+  honoreeName: 'Santiago Tomás',
+  eventDate: '2026-10-10',
   eventType: 'comunion',
   templateId: 'comunion-sacramento',
   planId: 'oro',
+  amount: 60000,
+  currency: 'ARS',
   status: 'published',
   publicSlug: 'comunion-santiago',
   previewToken: 'tok-prev-santiago-9941',
+  paymentMethod: 'transfer',
   paidAt: '2026-09-12T14:30:00.000Z',
   previewAvailableAt: '2026-09-12T14:30:00.000Z',
   publishedAt: '2026-09-13T08:00:00.000Z',
@@ -596,6 +603,83 @@ export const REFERENCE_PROJECT: Project = {
   createdAt: '2026-09-12T10:00:00.000Z',
   updatedAt: '2026-09-13T08:00:00.000Z'
 };
+
+// Pedidos ingresantes recientes para validación y gestión
+export const ORDER_CAMILA_LAUTARO: Project = {
+  id: 'proj-boda-camila-lautaro',
+  orderNumber: 'ORD-BODA-5120',
+  clientId: 'client-camila-lautaro',
+  clientEmail: 'camila.lautaro.boda@gmail.com',
+  clientPhone: '+54 9 11 5566 7788',
+  honoreeName: 'Camila & Lautaro',
+  eventDate: '2026-11-21',
+  eventType: 'boda',
+  templateId: 'boda-elegante',
+  planId: 'oro',
+  amount: 60000,
+  currency: 'ARS',
+  status: 'payment_review',
+  publicSlug: 'boda-camila-y-lautaro',
+  previewToken: 'tok-prev-camila-8812',
+  paymentMethod: 'transfer',
+  receiptUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=900&auto=format&fit=crop&q=80',
+  createdAt: '2026-09-16T10:15:00.000Z',
+  updatedAt: '2026-09-16T10:15:00.000Z'
+};
+
+export const ORDER_VALENTINA_MORALES: Project = {
+  id: 'proj-15anos-valentina',
+  orderNumber: 'ORD-15AN-7842',
+  clientId: 'client-valentina-morales',
+  clientEmail: 'familia.morales.xv@gmail.com',
+  clientPhone: '+54 9 3835 441122',
+  honoreeName: 'Valentina Morales',
+  eventDate: '2026-12-05',
+  eventType: '15anos',
+  templateId: '15anos-glamour',
+  planId: 'plata',
+  amount: 52000,
+  currency: 'ARS',
+  status: 'payment_review',
+  publicSlug: 'mis15-valentina-morales',
+  previewToken: 'tok-prev-valentina-3341',
+  paymentMethod: 'transfer',
+  receiptUrl: 'https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=900&auto=format&fit=crop&q=80',
+  createdAt: '2026-09-16T09:40:00.000Z',
+  updatedAt: '2026-09-16T09:40:00.000Z'
+};
+
+export const ORDER_MATEO_GAEL: Project = {
+  id: 'proj-bautismo-mateo',
+  orderNumber: 'ORD-BAUT-9204',
+  clientId: 'client-mateo-gael',
+  clientEmail: 'papas.de.mateo@gmail.com',
+  clientPhone: '+54 9 351 9882233',
+  honoreeName: 'Mateo Gael',
+  eventDate: '2026-10-18',
+  eventType: 'bautismo',
+  templateId: 'bautismo-angelical',
+  planId: 'bronce',
+  amount: 45000,
+  currency: 'ARS',
+  status: 'preview_available',
+  publicSlug: 'bautismo-mateo-gael',
+  previewToken: 'tok-prev-mateo-6712',
+  paymentMethod: 'transfer',
+  paidAt: '2026-09-15T18:00:00.000Z',
+  previewAvailableAt: '2026-09-15T18:00:00.000Z',
+  expiresAt: '2026-09-17T18:00:00.000Z',
+  receiptUrl: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=900&auto=format&fit=crop&q=80',
+  createdAt: '2026-09-15T17:30:00.000Z',
+  updatedAt: '2026-09-15T18:00:00.000Z'
+};
+
+export const INITIAL_PROJECTS: Project[] = [
+  ORDER_CAMILA_LAUTARO,
+  ORDER_VALENTINA_MORALES,
+  ORDER_MATEO_GAEL,
+  REFERENCE_PROJECT
+];
 
 export const REFERENCE_EVENT_SETTINGS: EventSettings = {
   projectId: 'proj-comunion-santiago-2026',
@@ -659,6 +743,129 @@ export const REFERENCE_EVENT_SETTINGS: EventSettings = {
       iconName: 'Gift'
     }
   ]
+};
+
+export const SETTINGS_CAMILA_LAUTARO: EventSettings = {
+  projectId: 'proj-boda-camila-lautaro',
+  title: 'Nuestra Boda',
+  honoreeName: 'Camila & Lautaro',
+  subtitle: 'El amor es paciente, es bondadoso. Los invitamos a celebrar nuestra unión.',
+  date: '2026-11-21',
+  time: '19:00',
+  ceremonyTime: '19:00',
+  partyTime: '21:00',
+  timezone: 'America/Argentina/Buenos_Aires',
+  locationName: 'Estancia San Ignacio & Capilla',
+  address: 'Ruta 8 Km 65, Pilar, Buenos Aires',
+  mapsUrl: 'https://maps.google.com/?q=Pilar+Buenos+Aires',
+  initialPhrase: 'Porque la vida es un viaje que decidimos caminar juntos para siempre.',
+  dressCode: 'Elegante',
+  dressCodeNotes: 'Sugerimos tonos pasteles o neutros.',
+  bankAlias: 'BODA.CAMI.LAU.26',
+  bankCvu: '0000003100099882233445',
+  bankHolder: 'Camila Rossi & Lautaro Benítez',
+  bankNotes: 'Tu presencia es nuestro mejor obsequio. Si deseas contribuir a nuestra luna de miel, puedes hacerlo aquí.',
+  selectedMusicUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=piano-moment-9835.mp3',
+  musicTitle: 'Melodía Romántica',
+  primaryColor: '#c59b27',
+  secondaryColor: '#fcfaf6',
+  accentColor: '#8a6414',
+  fontFamily: 'serif',
+  envelopeColor: '#1c1b18',
+  waxSealText: 'C&L',
+  coverPhotoUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=1000&auto=format&fit=crop&q=80',
+  carouselPhotos: [
+    'https://images.unsplash.com/photo-1519741497674-611481863552?w=800&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&auto=format&fit=crop&q=80'
+  ],
+  schedule: [
+    { time: '19:00 hs', title: 'Ceremonia Religiosa', description: 'Capilla San Ignacio.' },
+    { time: '21:00 hs', title: 'Recepción & Fiesta', description: 'Salón Principal.' }
+  ]
+};
+
+export const SETTINGS_VALENTINA_MORALES: EventSettings = {
+  projectId: 'proj-15anos-valentina',
+  title: 'Mis 15 Años',
+  honoreeName: 'Valentina Morales',
+  subtitle: 'Una noche mágica para celebrar mis 15 primaveras junto a quienes más quiero.',
+  date: '2026-12-05',
+  time: '21:30',
+  ceremonyTime: '21:30',
+  partyTime: '22:00',
+  timezone: 'America/Argentina/Buenos_Aires',
+  locationName: 'Salón Palais Rouge',
+  address: 'Jerónimo Salguero 1441, Palermo, Buenos Aires',
+  mapsUrl: 'https://maps.google.com/?q=Jerónimo+Salguero+1441+Buenos+Aires',
+  initialPhrase: 'Hay momentos que se sueñan toda la vida, y este es uno de ellos.',
+  dressCode: 'Elegante',
+  dressCodeNotes: '¡Prohibido vestir de color lavanda!',
+  bankAlias: 'VALE.MIS15.2026',
+  bankCvu: '0000003100088776655443',
+  bankHolder: 'Marcelo Morales (Papá)',
+  bankNotes: 'El mejor regalo es tu compañía. Si deseas obsequiarme algo, puedes colaborar con mi viaje de 15.',
+  selectedMusicUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=piano-moment-9835.mp3',
+  musicTitle: 'Vals de Ensueño',
+  primaryColor: '#a855f7',
+  secondaryColor: '#faf5ff',
+  accentColor: '#7e22ce',
+  fontFamily: 'serif',
+  envelopeColor: '#2e1065',
+  waxSealText: 'VM',
+  coverPhotoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1000&auto=format&fit=crop&q=80',
+  carouselPhotos: [
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80'
+  ],
+  schedule: [
+    { time: '21:30 hs', title: 'Recepción', description: 'Entrada de invitados.' },
+    { time: '22:30 hs', title: 'Entrada Triunfal & Vals', description: 'Vals con papá y corte de cinta.' },
+    { time: '01:00 hs', title: 'Carioca & Baile', description: 'Cotillón luminoso.' }
+  ]
+};
+
+export const SETTINGS_MATEO_GAEL: EventSettings = {
+  projectId: 'proj-bautismo-mateo',
+  title: 'Mi Bautismo',
+  honoreeName: 'Mateo Gael',
+  subtitle: 'Doy mi primer paso en la fe y quiero compartirlo con vos.',
+  date: '2026-10-18',
+  time: '12:00',
+  ceremonyTime: '12:00',
+  partyTime: '13:30',
+  timezone: 'America/Argentina/Buenos_Aires',
+  locationName: 'Basílica Santo Domingo',
+  address: 'Av. Vélez Sarsfield 250, Córdoba',
+  mapsUrl: 'https://maps.google.com/?q=Basílica+Santo+Domingo+Córdoba',
+  initialPhrase: 'Ángel de mi guarda, dulce compañía, no me desampares ni de noche ni de día.',
+  dressCode: 'Elegante Sport',
+  dressCodeNotes: 'Colores pasteles o blanco.',
+  bankAlias: 'MATEO.BAUTISMO.26',
+  bankCvu: '0000003100077665544332',
+  bankHolder: 'Esteban Gael',
+  bankNotes: 'Gracias por acompañarme en este día tan especial.',
+  selectedMusicUrl: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=piano-moment-9835.mp3',
+  musicTitle: 'Melodía de Paz',
+  primaryColor: '#0ea5e9',
+  secondaryColor: '#f0f9ff',
+  accentColor: '#0284c7',
+  fontFamily: 'sans',
+  envelopeColor: '#082f49',
+  waxSealText: 'MG',
+  coverPhotoUrl: 'https://images.unsplash.com/photo-1519689680058-324335c77eba?w=1000&auto=format&fit=crop&q=80',
+  carouselPhotos: [
+    'https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&auto=format&fit=crop&q=80'
+  ],
+  schedule: [
+    { time: '12:00 hs', title: 'Ceremonia de Bautismo', description: 'Pila Bautismal.' },
+    { time: '13:30 hs', title: 'Almuerzo Familiar', description: 'Brindis y agasajo.' }
+  ]
+};
+
+export const INITIAL_EVENT_SETTINGS_MAP: Record<string, EventSettings> = {
+  [REFERENCE_PROJECT.id]: REFERENCE_EVENT_SETTINGS,
+  [ORDER_CAMILA_LAUTARO.id]: SETTINGS_CAMILA_LAUTARO,
+  [ORDER_VALENTINA_MORALES.id]: SETTINGS_VALENTINA_MORALES,
+  [ORDER_MATEO_GAEL.id]: SETTINGS_MATEO_GAEL
 };
 
 export const REFERENCE_GUESTS: Guest[] = [
@@ -783,5 +990,86 @@ export const REFERENCE_EVENT_PHOTOS: EventPhoto[] = [
     status: 'approved',
     watermarkEnabled: true,
     createdAt: '2026-09-12T18:30:00.000Z'
+  }
+];
+
+export const INITIAL_PAYMENTS: PaymentTransaction[] = [
+  {
+    id: 'pay-boda-5120',
+    projectId: ORDER_CAMILA_LAUTARO.id,
+    provider: 'transfer',
+    providerPaymentId: 'TRF-11884422',
+    amount: 60000,
+    currency: 'ARS',
+    status: 'review',
+    receiptUrl: ORDER_CAMILA_LAUTARO.receiptUrl,
+    createdAt: '2026-09-16T10:15:00.000Z'
+  },
+  {
+    id: 'pay-15an-7842',
+    projectId: ORDER_VALENTINA_MORALES.id,
+    provider: 'transfer',
+    providerPaymentId: 'TRF-99443311',
+    amount: 52000,
+    currency: 'ARS',
+    status: 'review',
+    receiptUrl: ORDER_VALENTINA_MORALES.receiptUrl,
+    createdAt: '2026-09-16T09:40:00.000Z'
+  },
+  {
+    id: 'pay-baut-9204',
+    projectId: ORDER_MATEO_GAEL.id,
+    provider: 'transfer',
+    providerPaymentId: 'TRF-77665544',
+    amount: 45000,
+    currency: 'ARS',
+    status: 'completed',
+    paidAt: '2026-09-15T18:00:00.000Z',
+    receiptUrl: ORDER_MATEO_GAEL.receiptUrl,
+    createdAt: '2026-09-15T17:30:00.000Z'
+  },
+  {
+    id: 'pay-ref-001',
+    projectId: REFERENCE_PROJECT.id,
+    provider: 'transfer',
+    providerPaymentId: 'TRF-98421054',
+    amount: 60000,
+    currency: 'ARS',
+    status: 'completed',
+    paidAt: '2026-09-12T14:30:00.000Z',
+    createdAt: '2026-09-12T14:28:00.000Z'
+  }
+];
+
+export const INITIAL_NOTIFICATIONS: AdminNotification[] = [
+  {
+    id: 'notif-boda-5120',
+    type: 'receipt_uploaded',
+    title: 'Nuevo Pedido #ORD-BODA-5120 (ORO)',
+    message: 'Camila & Lautaro contrataron Boda Elegante. Comprobante bancario adjunto listo para validar y habilitar 24h.',
+    projectId: ORDER_CAMILA_LAUTARO.id,
+    paymentId: 'pay-boda-5120',
+    read: false,
+    createdAt: '2026-09-16T10:15:00.000Z'
+  },
+  {
+    id: 'notif-15an-7842',
+    type: 'receipt_uploaded',
+    title: 'Nuevo Pedido #ORD-15AN-7842 (PLATA)',
+    message: 'Valentina Morales contrató Mis 15 Años Glamour. Comprobante bancario adjunto listo para validar y habilitar 24h.',
+    projectId: ORDER_VALENTINA_MORALES.id,
+    paymentId: 'pay-15an-7842',
+    read: false,
+    createdAt: '2026-09-16T09:40:00.000Z'
+  },
+  {
+    id: 'notif-baut-9204',
+    type: 'order_created',
+    title: 'Pedido en Revisión #ORD-BAUT-9204 (BRONCE)',
+    message: 'Mateo Gael (Bautismo Angelical). En ventana de 24h de revisión previa por parte del cliente.',
+    projectId: ORDER_MATEO_GAEL.id,
+    paymentId: 'pay-baut-9204',
+    read: true,
+    createdAt: '2026-09-15T18:00:00.000Z'
   }
 ];

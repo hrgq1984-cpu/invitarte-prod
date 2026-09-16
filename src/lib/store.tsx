@@ -19,6 +19,10 @@ import {
 import { 
   INITIAL_PLANS, 
   INITIAL_TEMPLATES, 
+  INITIAL_PROJECTS,
+  INITIAL_EVENT_SETTINGS_MAP,
+  INITIAL_PAYMENTS,
+  INITIAL_NOTIFICATIONS,
   REFERENCE_PROJECT, 
   REFERENCE_EVENT_SETTINGS, 
   REFERENCE_GUESTS, 
@@ -60,9 +64,23 @@ interface StoreContextType {
   markAdminNotificationAsRead: (id: string) => void;
   markAllAdminNotificationsAsRead: () => void;
   deleteAdminNotification: (id: string) => void;
-  createOrder: (data: { eventType: EventType; templateId: string; planId: PlanTier; clientEmail: string; honoreeName: string }) => Project;
+  createOrder: (data: { 
+    eventType: EventType; 
+    templateId: string; 
+    planId: PlanTier; 
+    clientEmail: string; 
+    honoreeName: string;
+    clientPhone?: string;
+    eventDate?: string;
+    receiptUrl?: string;
+    paymentMethod?: 'transfer' | 'mercadopago';
+  }) => Project;
+  simulateTestOrder: () => Project;
+  deleteProject: (projectId: string) => void;
+  deleteOrder: (projectId: string) => void;
   submitPayment: (projectId: string, provider: 'mercadopago' | 'transfer', receiptUrl?: string) => PaymentTransaction;
   confirmPaymentAdmin: (paymentId: string) => void;
+  confirmOrderAdmin: (projectId: string) => void;
   rejectPaymentAdmin: (paymentId: string, reason?: string) => void;
   approveProjectByClient: (projectId: string) => void;
   requestClientCorrection: (projectId: string, notes: string) => void;
@@ -70,10 +88,20 @@ interface StoreContextType {
   submitRsvp: (data: Omit<Rsvp, 'id' | 'createdAt'>) => void;
   previewTemplate: (template: DesignTemplate) => void;
   resetAllData: () => void;
+  reloadFromStorage: () => void;
   exportDatabaseJson: () => string;
 }
 
 const STORAGE_KEY = 'invitarte_v1_store';
+
+const getDeletedIds = (): string[] => {
+  try {
+    const raw = localStorage.getItem(`${STORAGE_KEY}_deleted_ids`);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+};
 
 export const ADMIN_USER: User = {
   id: 'user-admin-root',
@@ -185,15 +213,39 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [templates] = useState<DesignTemplate[]>(INITIAL_TEMPLATES);
 
   const [projects, setProjects] = useState<Project[]>(() => {
+    const deletedIds = getDeletedIds();
+    const initialAvailable = INITIAL_PROJECTS.filter(p => !deletedIds.includes(p.id));
     const saved = localStorage.getItem(`${STORAGE_KEY}_projects`);
-    return saved ? JSON.parse(saved) : [REFERENCE_PROJECT];
+    if (saved) {
+      try {
+        const parsed: Project[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(p => !deletedIds.includes(p.id));
+          const missing = initialAvailable.filter(ip => !filtered.some(p => p.id === ip.id));
+          return [...filtered, ...missing];
+        }
+      } catch (e) {
+        console.warn('Error reading saved projects:', e);
+      }
+    }
+    return initialAvailable;
   });
 
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(REFERENCE_PROJECT.id);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
+    const deletedIds = getDeletedIds();
+    const active = INITIAL_PROJECTS.find(p => !deletedIds.includes(p.id));
+    return active ? active.id : REFERENCE_PROJECT.id;
+  });
 
   const [eventSettingsMap, setEventSettingsMap] = useState<Record<string, EventSettings>>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_settings`);
-    return saved ? JSON.parse(saved) : { [REFERENCE_PROJECT.id]: REFERENCE_EVENT_SETTINGS };
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { ...INITIAL_EVENT_SETTINGS_MAP, ...parsed };
+      } catch (e) {}
+    }
+    return INITIAL_EVENT_SETTINGS_MAP;
   });
 
   const [guestsMap, setGuestsMap] = useState<Record<string, Guest[]>>(() => {
@@ -225,35 +277,37 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [payments, setPayments] = useState<PaymentTransaction[]>(() => {
+    const deletedIds = getDeletedIds();
+    const initialAvailable = INITIAL_PAYMENTS.filter(ip => !deletedIds.includes(ip.projectId));
     const saved = localStorage.getItem(`${STORAGE_KEY}_payments`);
-    return saved ? JSON.parse(saved) : [
-      {
-        id: 'pay-ref-001',
-        projectId: REFERENCE_PROJECT.id,
-        provider: 'transfer',
-        providerPaymentId: 'TRF-98421054',
-        amount: 60000,
-        currency: 'ARS',
-        status: 'completed',
-        paidAt: '2026-09-12T14:30:00.000Z',
-        createdAt: '2026-09-12T14:28:00.000Z'
-      }
-    ];
+    if (saved) {
+      try {
+        const parsed: PaymentTransaction[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(p => !deletedIds.includes(p.projectId));
+          const missing = initialAvailable.filter(ip => !filtered.some(p => p.id === ip.id));
+          return [...filtered, ...missing];
+        }
+      } catch (e) {}
+    }
+    return initialAvailable;
   });
 
   const [adminNotifications, setAdminNotifications] = useState<AdminNotification[]>(() => {
+    const deletedIds = getDeletedIds();
+    const initialAvailable = INITIAL_NOTIFICATIONS.filter(inNotif => !deletedIds.includes(inNotif.projectId));
     const saved = localStorage.getItem(`${STORAGE_KEY}_admin_notifications`);
-    return saved ? JSON.parse(saved) : [
-      {
-        id: 'notif-welcome',
-        type: 'order_created',
-        title: '¡Bienvenido al Panel de Notificaciones!',
-        message: 'Aquí recibirás alertas inmediatas cada vez que un cliente contrate un plan o envíe un comprobante de transferencia bancaria.',
-        projectId: REFERENCE_PROJECT.id,
-        read: false,
-        createdAt: new Date().toISOString()
-      }
-    ];
+    if (saved) {
+      try {
+        const parsed: AdminNotification[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(n => !deletedIds.includes(n.projectId));
+          const missing = initialAvailable.filter(inNotif => !filtered.some(n => n.id === inNotif.id));
+          return [...filtered, ...missing];
+        }
+      } catch (e) {}
+    }
+    return initialAvailable;
   });
 
   // Sync state changes with localStorage
@@ -288,6 +342,78 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY}_admin_notifications`, JSON.stringify(adminNotifications));
   }, [adminNotifications]);
+
+  const reloadFromStorage = () => {
+    try {
+      const deletedIds = getDeletedIds();
+      const initialProjectsAvailable = INITIAL_PROJECTS.filter(p => !deletedIds.includes(p.id));
+      const savedProjects = localStorage.getItem(`${STORAGE_KEY}_projects`);
+      if (savedProjects) {
+        const parsed = JSON.parse(savedProjects);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((p: any) => !deletedIds.includes(p.id));
+          const missing = initialProjectsAvailable.filter(ip => !filtered.some(p => p.id === ip.id));
+          setProjects([...filtered, ...missing]);
+        }
+      } else {
+        setProjects(initialProjectsAvailable);
+      }
+
+      const initialPaymentsAvailable = INITIAL_PAYMENTS.filter(p => !deletedIds.includes(p.projectId));
+      const savedPayments = localStorage.getItem(`${STORAGE_KEY}_payments`);
+      if (savedPayments) {
+        const parsed = JSON.parse(savedPayments);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((p: any) => !deletedIds.includes(p.projectId));
+          const missing = initialPaymentsAvailable.filter(ip => !filtered.some(p => p.id === ip.id));
+          setPayments([...filtered, ...missing]);
+        }
+      } else {
+        setPayments(initialPaymentsAvailable);
+      }
+
+      const savedSettings = localStorage.getItem(`${STORAGE_KEY}_settings`);
+      if (savedSettings) setEventSettingsMap(JSON.parse(savedSettings));
+      const savedGuests = localStorage.getItem(`${STORAGE_KEY}_guests`);
+      if (savedGuests) setGuestsMap(JSON.parse(savedGuests));
+      const savedBlessings = localStorage.getItem(`${STORAGE_KEY}_blessings`);
+      if (savedBlessings) setBlessingsMap(JSON.parse(savedBlessings));
+      const savedPhotos = localStorage.getItem(`${STORAGE_KEY}_photos`);
+      if (savedPhotos) setPhotosMap(JSON.parse(savedPhotos));
+
+      const initialNotifsAvailable = INITIAL_NOTIFICATIONS.filter(n => !deletedIds.includes(n.projectId));
+      const savedNotifs = localStorage.getItem(`${STORAGE_KEY}_admin_notifications`);
+      if (savedNotifs) {
+        const parsed = JSON.parse(savedNotifs);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((n: any) => !deletedIds.includes(n.projectId));
+          const missing = initialNotifsAvailable.filter(inNotif => !filtered.some(n => n.id === inNotif.id));
+          setAdminNotifications([...filtered, ...missing]);
+        }
+      } else {
+        setAdminNotifications(initialNotifsAvailable);
+      }
+    } catch (e) {
+      console.error('Error reloading from storage:', e);
+    }
+  };
+
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (!e.key || e.key.startsWith(STORAGE_KEY)) {
+        reloadFromStorage();
+      }
+    };
+    const handleCustomChange = () => {
+      reloadFromStorage();
+    };
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('invitarte_store_updated', handleCustomChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('invitarte_store_updated', handleCustomChange);
+    };
+  }, []);
 
   const markAdminNotificationAsRead = (id: string) => {
     setAdminNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
@@ -482,23 +608,52 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }));
   };
 
-  const createOrder = (data: { eventType: EventType; templateId: string; planId: PlanTier; clientEmail: string; honoreeName: string }): Project => {
+  const createOrder = (data: { 
+    eventType: EventType; 
+    templateId: string; 
+    planId: PlanTier; 
+    clientEmail: string; 
+    honoreeName: string;
+    clientPhone?: string;
+    eventDate?: string;
+    receiptUrl?: string;
+    paymentMethod?: 'transfer' | 'mercadopago';
+  }): Project => {
     const tmpl = templates.find(t => t.id === data.templateId) || templates[0];
+    const plan = plans.find(p => p.id === data.planId) || plans[0];
     const projectId = `proj-${data.eventType}-${Date.now().toString(36)}`;
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const orderNumber = `ORD-${data.eventType.toUpperCase().slice(0, 4)}-${randomSuffix}`;
     const slug = `${data.eventType}-${data.honoreeName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Math.floor(100 + Math.random() * 900)}`;
+
+    const paymentMethod = data.paymentMethod || 'transfer';
+    const isInstant = paymentMethod === 'mercadopago';
+    const now = new Date();
+    const reviewDeadline = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
     const newProject: Project = {
       id: projectId,
+      orderNumber,
       clientId: currentUser.id,
       clientEmail: data.clientEmail || currentUser.email,
+      clientPhone: data.clientPhone,
+      honoreeName: data.honoreeName,
+      eventDate: data.eventDate || tmpl.sampleDate,
       eventType: data.eventType,
       templateId: data.templateId,
       planId: data.planId,
-      status: 'pending_payment',
+      amount: plan.price,
+      currency: plan.currency,
+      status: isInstant ? 'preview_available' : 'payment_review',
       publicSlug: slug,
       previewToken: `tok-${Math.random().toString(36).substring(2, 10)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      receiptUrl: data.receiptUrl,
+      paymentMethod,
+      paidAt: isInstant ? now.toISOString() : undefined,
+      previewAvailableAt: isInstant ? now.toISOString() : undefined,
+      expiresAt: isInstant ? reviewDeadline.toISOString() : undefined,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
     };
 
     // Initialize event settings from template
@@ -507,7 +662,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       title: tmpl.name,
       honoreeName: data.honoreeName,
       subtitle: `Celebración de ${tmpl.name}`,
-      date: tmpl.sampleDate,
+      date: data.eventDate || tmpl.sampleDate,
       time: '18:00',
       ceremonyTime: '18:00',
       partyTime: '20:00',
@@ -539,46 +694,252 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ]
     };
 
-    setProjects(prev => [newProject, ...prev]);
-    setEventSettingsMap(prev => ({ ...prev, [projectId]: newSettings }));
-    setSelectedProjectId(projectId);
+    // Create payment transaction
+    const paymentId = `pay-${Date.now()}`;
+    const newPayment: PaymentTransaction = {
+      id: paymentId,
+      projectId,
+      provider: paymentMethod,
+      providerPaymentId: isInstant ? `MP-${Math.floor(10000000 + Math.random() * 90000000)}` : undefined,
+      amount: plan.price,
+      currency: plan.currency,
+      status: isInstant ? 'completed' : 'review',
+      receiptUrl: data.receiptUrl,
+      paidAt: isInstant ? now.toISOString() : undefined,
+      createdAt: now.toISOString()
+    };
 
     // Create Admin Notification for newly contracted service
     const planName = data.planId.toUpperCase();
     const notif: AdminNotification = {
       id: `notif-order-${Date.now()}`,
-      type: 'order_created',
-      title: `Nuevo Servicio Contratado (${planName})`,
-      message: `El cliente ${data.clientEmail || 'nuevo'} contrató la plantilla "${tmpl.name}" para "${data.honoreeName}" (Plan ${planName}).`,
+      type: data.receiptUrl ? 'receipt_uploaded' : 'order_created',
+      title: `Nuevo Pedido #${orderNumber} (${planName})`,
+      message: `El cliente ${data.honoreeName} (${data.clientEmail || 'nuevo'}, WhatsApp: ${data.clientPhone || 'No especificado'}) ingresó un nuevo pedido para "${tmpl.name}" (Plan ${planName}, $${plan.price.toLocaleString('es-AR')} ${plan.currency}). ${data.receiptUrl ? 'Comprobante bancario adjunto para validar.' : 'Pendiente de comprobante.'}`,
       projectId,
+      paymentId,
       read: false,
-      createdAt: new Date().toISOString()
+      createdAt: now.toISOString()
     };
+
+    // Update state
+    setProjects(prev => [newProject, ...prev]);
+    setEventSettingsMap(prev => ({ ...prev, [projectId]: newSettings }));
+    setPayments(prev => [newPayment, ...prev]);
     setAdminNotifications(prev => [notif, ...prev]);
+    setSelectedProjectId(projectId);
+
+    // Write immediately to localStorage to guarantee cross-view persistence
+    try {
+      const savedProjects = localStorage.getItem(`${STORAGE_KEY}_projects`);
+      const existingProjects = savedProjects ? JSON.parse(savedProjects) : [];
+      localStorage.setItem(`${STORAGE_KEY}_projects`, JSON.stringify([newProject, ...existingProjects.filter((p: any) => p.id !== projectId)]));
+
+      const savedPayments = localStorage.getItem(`${STORAGE_KEY}_payments`);
+      const existingPayments = savedPayments ? JSON.parse(savedPayments) : [];
+      localStorage.setItem(`${STORAGE_KEY}_payments`, JSON.stringify([newPayment, ...existingPayments.filter((p: any) => p.id !== paymentId)]));
+
+      const savedSettings = localStorage.getItem(`${STORAGE_KEY}_settings`);
+      const existingSettings = savedSettings ? JSON.parse(savedSettings) : {};
+      localStorage.setItem(`${STORAGE_KEY}_settings`, JSON.stringify({ ...existingSettings, [projectId]: newSettings }));
+
+      const savedNotifs = localStorage.getItem(`${STORAGE_KEY}_admin_notifications`);
+      const existingNotifs = savedNotifs ? JSON.parse(savedNotifs) : [];
+      localStorage.setItem(`${STORAGE_KEY}_admin_notifications`, JSON.stringify([notif, ...existingNotifs]));
+    } catch (e) {
+      console.warn('LocalStorage write warning:', e);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('invitarte_store_updated'));
+    }
 
     return newProject;
   };
 
+  const simulateTestOrder = (): Project => {
+    const testSamples: Array<{
+      eventType: EventType;
+      templateId: string;
+      planId: PlanTier;
+      clientEmail: string;
+      honoreeName: string;
+      clientPhone: string;
+      eventDate: string;
+      paymentMethod: 'transfer';
+      receiptUrl: string;
+    }> = [
+      {
+        eventType: 'boda',
+        templateId: 'boda-elegante',
+        planId: 'oro',
+        clientEmail: 'sofia.mateo@gmail.com',
+        honoreeName: 'Sofía & Mateo',
+        clientPhone: '+54 9 11 5566 7788',
+        eventDate: '2026-11-21',
+        paymentMethod: 'transfer',
+        receiptUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=900&auto=format&fit=crop&q=80'
+      },
+      {
+        eventType: '15anos',
+        templateId: '15anos-glamour',
+        planId: 'plata',
+        clientEmail: 'martina.quince@gmail.com',
+        honoreeName: 'Martina Paz',
+        clientPhone: '+54 9 3835 441122',
+        eventDate: '2026-10-18',
+        paymentMethod: 'transfer',
+        receiptUrl: 'https://images.unsplash.com/photo-1607344645866-009c320c5ab8?w=900&auto=format&fit=crop&q=80'
+      },
+      {
+        eventType: 'cumpleanos',
+        templateId: 'cumpleanos-dorado',
+        planId: 'bronce',
+        clientEmail: 'gonzalo.cumple@gmail.com',
+        honoreeName: 'Gonzalo Fernández (40 Años)',
+        clientPhone: '+54 9 351 998877',
+        eventDate: '2026-12-05',
+        paymentMethod: 'transfer',
+        receiptUrl: 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=900&auto=format&fit=crop&q=80'
+      },
+      {
+        eventType: 'bautismo',
+        templateId: 'bautismo-angelical',
+        planId: 'plata',
+        clientEmail: 'lucia.bautismo@gmail.com',
+        honoreeName: 'Lucía Milagros',
+        clientPhone: '+54 9 383 552233',
+        eventDate: '2026-10-30',
+        paymentMethod: 'transfer',
+        receiptUrl: 'https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=900&auto=format&fit=crop&q=80'
+      }
+    ];
+
+    const pick = testSamples[Math.floor(Math.random() * testSamples.length)];
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    return createOrder({
+      ...pick,
+      honoreeName: `${pick.honoreeName} #${randomSuffix}`
+    });
+  };
+
+  const deleteProject = (projectId: string) => {
+    // 1. Record ID into deleted list to prevent resurrection
+    try {
+      const deletedIds = getDeletedIds();
+      if (!deletedIds.includes(projectId)) {
+        localStorage.setItem(`${STORAGE_KEY}_deleted_ids`, JSON.stringify([...deletedIds, projectId]));
+      }
+    } catch (e) {
+      console.warn('Error recording deleted project ID:', e);
+    }
+
+    // 2. Remove from projects
+    setProjects(prev => {
+      const updated = prev.filter(p => p.id !== projectId);
+      try {
+        localStorage.setItem(`${STORAGE_KEY}_projects`, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    // 3. Remove from payments
+    setPayments(prev => {
+      const updated = prev.filter(p => p.projectId !== projectId);
+      try {
+        localStorage.setItem(`${STORAGE_KEY}_payments`, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    // 4. Remove from admin notifications
+    setAdminNotifications(prev => {
+      const updated = prev.filter(n => n.projectId !== projectId);
+      try {
+        localStorage.setItem(`${STORAGE_KEY}_admin_notifications`, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    // 5. Remove from event settings
+    setEventSettingsMap(prev => {
+      const copy = { ...prev };
+      delete copy[projectId];
+      try {
+        localStorage.setItem(`${STORAGE_KEY}_settings`, JSON.stringify(copy));
+      } catch (e) {}
+      return copy;
+    });
+
+    // 6. Remove guests, blessings, photos
+    setGuestsMap(prev => {
+      const copy = { ...prev };
+      delete copy[projectId];
+      try {
+        localStorage.setItem(`${STORAGE_KEY}_guests`, JSON.stringify(copy));
+      } catch (e) {}
+      return copy;
+    });
+
+    setBlessingsMap(prev => {
+      const copy = { ...prev };
+      delete copy[projectId];
+      try {
+        localStorage.setItem(`${STORAGE_KEY}_blessings`, JSON.stringify(copy));
+      } catch (e) {}
+      return copy;
+    });
+
+    setPhotosMap(prev => {
+      const copy = { ...prev };
+      delete copy[projectId];
+      try {
+        localStorage.setItem(`${STORAGE_KEY}_photos`, JSON.stringify(copy));
+      } catch (e) {}
+      return copy;
+    });
+
+    // 7. Adjust selected project if deleted
+    setSelectedProjectId(prev => {
+      if (prev === projectId) {
+        const remaining = projects.filter(p => p.id !== projectId);
+        return remaining[0]?.id || REFERENCE_PROJECT.id;
+      }
+      return prev;
+    });
+
+    // 8. Broadcast update
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('invitarte_store_updated'));
+    }
+  };
+
+  const deleteOrder = deleteProject;
+
   const submitPayment = (projectId: string, provider: 'mercadopago' | 'transfer', receiptUrl?: string): PaymentTransaction => {
-    const proj = projects.find(p => p.id === projectId) || currentProject;
-    const plan = plans.find(p => p.id === proj.planId) || plans[0];
+    const proj = projects.find(p => p.id === projectId);
+    const plan = proj ? (plans.find(p => p.id === proj.planId) || plans[0]) : plans[0];
     const settings = eventSettingsMap[projectId] || REFERENCE_EVENT_SETTINGS;
 
-    const paymentId = `pay-${Date.now()}`;
-    const newPayment: PaymentTransaction = {
+    const existingPayment = payments.find(p => p.projectId === projectId);
+    const paymentId = existingPayment ? existingPayment.id : `pay-${Date.now()}`;
+    const amount = proj?.amount || plan.price;
+    const currency = proj?.currency || plan.currency;
+
+    const updatedPayment: PaymentTransaction = {
       id: paymentId,
       projectId,
       provider,
       providerPaymentId: provider === 'mercadopago' ? `MP-${Math.floor(10000000 + Math.random() * 90000000)}` : undefined,
-      amount: plan.price,
-      currency: plan.currency,
+      amount,
+      currency,
       status: provider === 'mercadopago' ? 'completed' : 'review',
-      receiptUrl,
+      receiptUrl: receiptUrl || existingPayment?.receiptUrl,
       paidAt: provider === 'mercadopago' ? new Date().toISOString() : undefined,
-      createdAt: new Date().toISOString()
+      createdAt: existingPayment ? existingPayment.createdAt : new Date().toISOString()
     };
 
-    setPayments(prev => [newPayment, ...prev]);
+    setPayments(prev => [updatedPayment, ...prev.filter(p => p.id !== paymentId)]);
 
     // If instant Mercado Pago payment
     if (provider === 'mercadopago') {
@@ -587,6 +948,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setProjects(prev => prev.map(p => p.id === projectId ? {
         ...p,
         status: 'preview_available',
+        receiptUrl: receiptUrl || p.receiptUrl,
         paidAt: now.toISOString(),
         previewAvailableAt: now.toISOString(),
         expiresAt: reviewDeadline.toISOString(),
@@ -596,6 +958,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setProjects(prev => prev.map(p => p.id === projectId ? {
         ...p,
         status: 'payment_review',
+        receiptUrl: receiptUrl || p.receiptUrl,
         updatedAt: new Date().toISOString()
       } : p));
 
@@ -604,7 +967,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         id: `notif-receipt-${Date.now()}`,
         type: 'receipt_uploaded',
         title: receiptUrl ? 'Nuevo Comprobante de Transferencia' : 'Transferencia Bancaria Registrada',
-        message: `Se registró el pago de $${plan.price.toLocaleString('es-AR')} para "${settings.honoreeName}" (${proj.clientEmail}). Requiere validación de comprobante para habilitar la vista previa de 24h.`,
+        message: `Se registró el pago de $${amount.toLocaleString('es-AR')} para "${settings.honoreeName}" (${proj?.clientEmail || 'cliente'}). Requiere validación de comprobante para habilitar la vista previa de 24h.`,
         projectId,
         paymentId,
         read: false,
@@ -613,7 +976,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setAdminNotifications(prev => [notif, ...prev]);
     }
 
-    return newPayment;
+    return updatedPayment;
   };
 
   const confirmPaymentAdmin = (paymentId: string) => {
@@ -639,7 +1002,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } : p));
 
     // Mark related notification as read if exists
-    setAdminNotifications(prev => prev.map(n => n.paymentId === paymentId ? { ...n, read: true } : n));
+    setAdminNotifications(prev => prev.map(n => n.paymentId === paymentId || n.projectId === pay.projectId ? { ...n, read: true } : n));
+  };
+
+  const confirmOrderAdmin = (projectId: string) => {
+    const now = new Date();
+    const reviewDeadline = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    setProjects(prev => prev.map(p => p.id === projectId ? {
+      ...p,
+      status: 'preview_available',
+      paidAt: now.toISOString(),
+      previewAvailableAt: now.toISOString(),
+      expiresAt: reviewDeadline.toISOString(),
+      updatedAt: now.toISOString()
+    } : p));
+
+    setPayments(prev => prev.map(p => p.projectId === projectId ? {
+      ...p,
+      status: 'completed',
+      paidAt: now.toISOString()
+    } : p));
+
+    setAdminNotifications(prev => prev.map(n => n.projectId === projectId ? { ...n, read: true } : n));
   };
 
   const rejectPaymentAdmin = (paymentId: string, reason?: string) => {
@@ -887,13 +1272,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.removeItem(`${STORAGE_KEY}_blessings`);
     localStorage.removeItem(`${STORAGE_KEY}_photos`);
     localStorage.removeItem(`${STORAGE_KEY}_payments`);
+    localStorage.removeItem(`${STORAGE_KEY}_admin_notifications`);
+    localStorage.removeItem(`${STORAGE_KEY}_deleted_ids`);
     setPlans(INITIAL_PLANS);
-    setProjects([REFERENCE_PROJECT]);
-    setSelectedProjectId(REFERENCE_PROJECT.id);
-    setEventSettingsMap({ [REFERENCE_PROJECT.id]: REFERENCE_EVENT_SETTINGS });
+    setProjects(INITIAL_PROJECTS);
+    setSelectedProjectId(INITIAL_PROJECTS[0].id);
+    setEventSettingsMap(INITIAL_EVENT_SETTINGS_MAP);
     setGuestsMap({ [REFERENCE_PROJECT.id]: REFERENCE_GUESTS });
     setBlessingsMap({ [REFERENCE_PROJECT.id]: REFERENCE_BLESSINGS });
     setPhotosMap({ [REFERENCE_PROJECT.id]: REFERENCE_EVENT_PHOTOS });
+    setPayments(INITIAL_PAYMENTS);
+    setAdminNotifications(INITIAL_NOTIFICATIONS);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('invitarte_store_updated'));
+    }
   };
 
   const exportDatabaseJson = (): string => {
@@ -947,8 +1339,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       markAllAdminNotificationsAsRead,
       deleteAdminNotification,
       createOrder,
+      simulateTestOrder,
+      deleteProject,
+      deleteOrder,
       submitPayment,
       confirmPaymentAdmin,
+      confirmOrderAdmin,
       rejectPaymentAdmin,
       approveProjectByClient,
       requestClientCorrection,
@@ -956,6 +1352,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       submitRsvp,
       previewTemplate,
       resetAllData,
+      reloadFromStorage,
       exportDatabaseJson
     }}>
       {children}

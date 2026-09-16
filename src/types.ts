@@ -80,14 +80,22 @@ export type ProjectStatus =
 
 export interface Project {
   id: string;
+  orderNumber?: string;
   clientId: string;
   clientEmail: string;
+  clientPhone?: string;
+  honoreeName?: string;
+  eventDate?: string;
   eventType: EventType;
   templateId: string;
   planId: PlanTier;
+  amount?: number;
+  currency?: string;
   status: ProjectStatus;
   publicSlug: string;
   previewToken: string;
+  receiptUrl?: string;
+  paymentMethod?: string;
   paidAt?: string;
   previewAvailableAt?: string;
   publishedAt?: string;

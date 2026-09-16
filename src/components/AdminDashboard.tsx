@@ -28,10 +28,15 @@ import {
   Check,
   Clock,
   FileCheck,
-  Inbox
+  Inbox,
+  ShoppingBag,
+  RefreshCw,
+  Plus,
+  Zap,
+  X
 } from 'lucide-react';
 import { useStore } from '../lib/store';
-import { PlanTier, ProjectStatus } from '../types';
+import { PlanTier, ProjectStatus, EventType } from '../types';
 
 export const AdminDashboard: React.FC = () => {
   const { 
@@ -43,12 +48,17 @@ export const AdminDashboard: React.FC = () => {
     adminSetProjectStatus, 
     payments, 
     confirmPaymentAdmin, 
+    confirmOrderAdmin,
     rejectPaymentAdmin,
     adminNotifications,
     unreadAdminNotificationsCount,
     markAdminNotificationAsRead,
     markAllAdminNotificationsAsRead,
     deleteAdminNotification,
+    deleteProject,
+    deleteOrder,
+    simulateTestOrder,
+    createOrder,
     blessings, 
     moderateBlessing, 
     photos, 
@@ -57,15 +67,98 @@ export const AdminDashboard: React.FC = () => {
     updateDisplaySettings,
     exportDatabaseJson,
     resetAllData,
+    reloadFromStorage,
     currentEventSettings,
-    updateEventSettings
+    updateEventSettings,
+    templates
   } = useStore();
 
-  const [activeAdminTab, setActiveAdminTab] = useState<'notifications' | 'projects' | 'pricing' | 'payments' | 'moderation' | 'tv' | 'deployment' | 'backup'>('notifications');
+  const [activeAdminTab, setActiveAdminTab] = useState<'orders' | 'notifications' | 'projects' | 'pricing' | 'payments' | 'moderation' | 'tv' | 'deployment' | 'backup'>('orders');
   const [selectedReceiptPayment, setSelectedReceiptPayment] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   
+  // Deletion state
+  const [orderToDelete, setOrderToDelete] = useState<{ id: string; name: string; isProjectOnly?: boolean } | null>(null);
+  const [deleteSuccessMessage, setDeleteSuccessMessage] = useState<string | null>(null);
+
+  // Instant Test Order Simulation state
+  const [testOrderNotice, setTestOrderNotice] = useState<string | null>(null);
+
+  // Manual Order Modal state
+  const [showManualOrderModal, setShowManualOrderModal] = useState(false);
+  const [manualOrderForm, setManualOrderForm] = useState<{
+    eventType: EventType;
+    templateId: string;
+    planId: PlanTier;
+    clientEmail: string;
+    honoreeName: string;
+    clientPhone: string;
+    eventDate: string;
+    paymentMethod: 'transfer' | 'mercadopago';
+    receiptUrl: string;
+  }>({
+    eventType: 'boda',
+    templateId: 'boda-elegante',
+    planId: 'oro',
+    clientEmail: '',
+    honoreeName: '',
+    clientPhone: '',
+    eventDate: '2026-11-20',
+    paymentMethod: 'transfer',
+    receiptUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=900&auto=format&fit=crop&q=80'
+  });
+
+  const handleSimulateTestOrder = () => {
+    const newOrd = simulateTestOrder();
+    setTestOrderNotice(`¡Pedido #${newOrd.orderNumber || newOrd.id} creado con éxito para ${newOrd.honoreeName}!`);
+    setTimeout(() => setTestOrderNotice(null), 4000);
+  };
+
+  const handleConfirmDeleteOrder = () => {
+    if (!orderToDelete) return;
+    deleteProject(orderToDelete.id);
+    const targetName = orderToDelete.name;
+    setOrderToDelete(null);
+    setDeleteSuccessMessage(`Pedido "${targetName}" eliminado con éxito.`);
+    setTimeout(() => setDeleteSuccessMessage(null), 3000);
+  };
+
+  const handleCreateManualOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualOrderForm.honoreeName || !manualOrderForm.clientEmail) return;
+    const newOrd = createOrder({
+      eventType: manualOrderForm.eventType,
+      templateId: manualOrderForm.templateId,
+      planId: manualOrderForm.planId,
+      clientEmail: manualOrderForm.clientEmail,
+      honoreeName: manualOrderForm.honoreeName,
+      clientPhone: manualOrderForm.clientPhone,
+      eventDate: manualOrderForm.eventDate,
+      paymentMethod: manualOrderForm.paymentMethod,
+      receiptUrl: manualOrderForm.receiptUrl
+    });
+    setShowManualOrderModal(false);
+    setTestOrderNotice(`¡Pedido #${newOrd.orderNumber} registrado y visualizado en pantalla!`);
+    setTimeout(() => setTestOrderNotice(null), 4000);
+  };
+
+  // Orders tab filters & search
+  const [orderSearch, setOrderSearch] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
+  const [orderSortOrder, setOrderSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [refreshFeedback, setRefreshFeedback] = useState(false);
+
+  const handleManualRefresh = () => {
+    reloadFromStorage();
+    setRefreshFeedback(true);
+    setTimeout(() => setRefreshFeedback(false), 2000);
+  };
+
+  const pendingOrdersCount = projects.filter(p => p.status === 'payment_review' || p.status === 'pending_payment').length;
+  const previewOrdersCount = projects.filter(p => p.status === 'preview_available').length;
+  const publishedOrdersCount = projects.filter(p => p.status === 'published').length;
+
   // Projects tab filters & search
   const [projectSearch, setProjectSearch] = useState('');
   const [projectStatusFilter, setProjectStatusFilter] = useState<string>('all');
@@ -185,8 +278,21 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Action Button: Download JSON Backup */}
+        {/* Action Buttons: Refresh Data & Download JSON Backup */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleManualRefresh}
+            className={`px-4 py-2.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              refreshFeedback 
+                ? 'bg-emerald-600/30 border-emerald-500 text-emerald-300' 
+                : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border-neutral-700'
+            }`}
+            title="Refrescar y recargar pedidos desde la memoria de la aplicación"
+          >
+            <RotateCcw className={`w-4 h-4 text-amber-400 ${refreshFeedback ? 'animate-spin' : ''}`} />
+            <span>{refreshFeedback ? '¡Sincronizado!' : 'Refrescar Datos'}</span>
+          </button>
+
           <button
             onClick={handleDownloadBackup}
             className="px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
@@ -199,6 +305,28 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Admin Subtabs */}
       <div className="flex items-center gap-2 border-b border-neutral-800 pb-2 overflow-x-auto text-xs font-semibold">
+        {/* Tab 1: Pedidos Ingresantes */}
+        <button
+          onClick={() => setActiveAdminTab('orders')}
+          className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 relative ${
+            activeAdminTab === 'orders' 
+              ? 'bg-amber-500 text-neutral-950 font-bold shadow-lg shadow-amber-500/20' 
+              : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
+          }`}
+        >
+          <Inbox className="w-4 h-4" />
+          <span>Pedidos Ingresantes</span>
+          {pendingOrdersCount > 0 ? (
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              activeAdminTab === 'orders' ? 'bg-black text-amber-300' : 'bg-amber-500 text-black animate-pulse'
+            }`}>
+              {pendingOrdersCount} Nuevos
+            </span>
+          ) : (
+            <span className="text-[10px] opacity-70">({projects.length})</span>
+          )}
+        </button>
+
         <button
           onClick={() => setActiveAdminTab('notifications')}
           className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-2 relative ${
@@ -206,7 +334,7 @@ export const AdminDashboard: React.FC = () => {
           }`}
         >
           <Bell className="w-4 h-4" />
-          <span>Notificaciones & Pedidos</span>
+          <span>Notificaciones & Alertas</span>
           {unreadAdminNotificationsCount > 0 && (
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
               activeAdminTab === 'notifications' ? 'bg-black text-amber-300' : 'bg-amber-500 text-black animate-pulse'
@@ -223,7 +351,7 @@ export const AdminDashboard: React.FC = () => {
           }`}
         >
           <CheckCircle2 className="w-4 h-4" />
-          Pagos & Validar Comprobantes ({payments.length})
+          Pagos & Comprobantes ({payments.length})
         </button>
 
         <button
@@ -276,6 +404,519 @@ export const AdminDashboard: React.FC = () => {
           Publicación & Seguridad Netlify
         </button>
       </div>
+
+      {/* 0. TAB ORDERS: BANDEJA CENTRAL DE PEDIDOS INGRESANTES */}
+      {activeAdminTab === 'orders' && (() => {
+        const filteredOrders = projects
+          .filter(proj => {
+            const search = orderSearch.toLowerCase().trim();
+            if (!search) return true;
+            return (
+              (proj.orderNumber && proj.orderNumber.toLowerCase().includes(search)) ||
+              (proj.honoreeName && proj.honoreeName.toLowerCase().includes(search)) ||
+              (proj.clientEmail && proj.clientEmail.toLowerCase().includes(search)) ||
+              (proj.clientPhone && proj.clientPhone.includes(search)) ||
+              (proj.eventType && proj.eventType.toLowerCase().includes(search)) ||
+              (proj.publicSlug && proj.publicSlug.toLowerCase().includes(search)) ||
+              (proj.planId && proj.planId.toLowerCase().includes(search))
+            );
+          })
+          .filter(proj => {
+            if (orderStatusFilter === 'all') return true;
+            return proj.status === orderStatusFilter;
+          })
+          .sort((a, b) => {
+            if (orderSortOrder === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          });
+
+        return (
+          <div className="space-y-6 text-xs animate-in fade-in">
+            {/* Header & Refresh */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-neutral-900 border border-neutral-800 p-5 rounded-2xl shadow-lg">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
+                    Recepción en Vivo
+                  </span>
+                  {refreshFeedback && (
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold animate-pulse">
+                      ¡Datos Actualizados!
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-base sm:text-lg font-cinzel font-bold text-white mt-1 flex items-center gap-2">
+                  <Inbox className="w-5 h-5 text-amber-400" />
+                  Bandeja Central de Pedidos Ingresantes
+                </h2>
+                <p className="text-neutral-400 mt-1 max-w-2xl text-[11px] leading-relaxed">
+                  Supervisa cada solicitud de invitación digital enviada desde la web comercial. Valida comprobantes de transferencia con 1 click, habilita las 24hs de revisión previa o contacta directamente a cada cliente por WhatsApp.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                <button
+                  onClick={handleSimulateTestOrder}
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 font-bold flex items-center gap-1.5 transition-all text-xs shadow-md shadow-amber-500/20 active:scale-95"
+                  title="Generar instantáneamente un nuevo pedido con comprobante de pago para verificar recepción"
+                >
+                  <Zap className="w-3.5 h-3.5 fill-neutral-950 text-neutral-950" />
+                  <span>⚡ Generar Pedido de Prueba</span>
+                </button>
+
+                <button
+                  onClick={() => setShowManualOrderModal(true)}
+                  className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 font-semibold flex items-center gap-1.5 transition-all text-xs"
+                  title="Registrar un nuevo pedido manualmente"
+                >
+                  <Plus className="w-3.5 h-3.5 text-amber-400" />
+                  <span>+ Nuevo Pedido</span>
+                </button>
+
+                <button
+                  onClick={handleManualRefresh}
+                  className="px-3 py-2 rounded-xl bg-neutral-850 hover:bg-neutral-750 text-neutral-300 border border-neutral-700/80 font-medium flex items-center gap-1.5 transition-all text-xs"
+                  title="Recargar datos de almacenamiento"
+                >
+                  <RotateCcw className={`w-3.5 h-3.5 text-amber-400 ${refreshFeedback ? 'animate-spin' : ''}`} />
+                  <span>Actualizar</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Test Order / Delete Notice Alerts */}
+            {testOrderNotice && (
+              <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs flex items-center justify-between animate-fadeIn">
+                <div className="flex items-center gap-2 font-medium">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span>{testOrderNotice}</span>
+                </div>
+                <button 
+                  onClick={() => setTestOrderNotice(null)}
+                  className="text-neutral-400 hover:text-white text-xs p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {deleteSuccessMessage && (
+              <div className="p-3.5 rounded-xl bg-red-500/15 border border-red-500/40 text-red-300 text-xs flex items-center justify-between animate-fadeIn">
+                <div className="flex items-center gap-2 font-medium">
+                  <Trash2 className="w-4 h-4 text-red-400 flex-shrink-0" />
+                  <span>{deleteSuccessMessage}</span>
+                </div>
+                <button 
+                  onClick={() => setDeleteSuccessMessage(null)}
+                  className="text-neutral-400 hover:text-white text-xs p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* KPI Metric Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-neutral-900/80 border border-neutral-800 p-4 rounded-2xl">
+                <div className="flex items-center justify-between text-neutral-400 mb-1">
+                  <span className="text-[11px] font-medium">Total Pedidos</span>
+                  <ShoppingBag className="w-4 h-4 text-neutral-500" />
+                </div>
+                <div className="text-2xl font-bold font-cinzel text-white">
+                  {projects.length}
+                </div>
+                <span className="text-[10px] text-neutral-500">Registrados en sistema</span>
+              </div>
+
+              <div className={`p-4 rounded-2xl border transition-all ${
+                pendingOrdersCount > 0 
+                  ? 'bg-amber-500/10 border-amber-500/40 shadow-lg shadow-amber-500/5' 
+                  : 'bg-neutral-900/80 border-neutral-800'
+              }`}>
+                <div className="flex items-center justify-between text-amber-400 mb-1">
+                  <span className="text-[11px] font-semibold">Nuevos / Por Validar</span>
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                </div>
+                <div className="text-2xl font-bold font-cinzel text-amber-300">
+                  {pendingOrdersCount}
+                </div>
+                <span className="text-[10px] text-amber-400/80">
+                  {pendingOrdersCount > 0 ? '¡Requieren atención inmediata!' : 'Al día, sin demoras'}
+                </span>
+              </div>
+
+              <div className="bg-neutral-900/80 border border-neutral-800 p-4 rounded-2xl">
+                <div className="flex items-center justify-between text-blue-400 mb-1">
+                  <span className="text-[11px] font-medium">En Vista Previa (24h)</span>
+                  <Eye className="w-4 h-4 text-blue-400" />
+                </div>
+                <div className="text-2xl font-bold font-cinzel text-blue-300">
+                  {previewOrdersCount}
+                </div>
+                <span className="text-[10px] text-neutral-500">Esperando conformidad</span>
+              </div>
+
+              <div className="bg-neutral-900/80 border border-neutral-800 p-4 rounded-2xl">
+                <div className="flex items-center justify-between text-emerald-400 mb-1">
+                  <span className="text-[11px] font-medium">Aprobadas / Online</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div className="text-2xl font-bold font-cinzel text-emerald-300">
+                  {publishedOrdersCount}
+                </div>
+                <span className="text-[10px] text-neutral-500">Activas & en circulación</span>
+              </div>
+            </div>
+
+            {/* Search and Filters Bar */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-neutral-900/60 border border-neutral-800 p-3 rounded-2xl">
+              <div className="relative">
+                <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Buscar por N° pedido, nombre, email, WhatsApp..."
+                  value={orderSearch}
+                  onChange={(e) => setOrderSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div className="relative">
+                <Filter className="w-4 h-4 text-neutral-500 absolute left-3 top-2.5" />
+                <select
+                  value={orderStatusFilter}
+                  onChange={(e) => setOrderStatusFilter(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400"
+                >
+                  <option value="all">Todos los Pedidos ({projects.length})</option>
+                  <option value="payment_review">⚡ Nuevos / Pago en Revisión ({projects.filter(p => p.status === 'payment_review').length})</option>
+                  <option value="preview_available">👁️ En Vista Previa 24h ({previewOrdersCount})</option>
+                  <option value="published">✅ Aprobados & Publicados ({publishedOrdersCount})</option>
+                  <option value="pending_payment">⏳ Pendiente de Pago ({projects.filter(p => p.status === 'pending_payment').length})</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={orderSortOrder}
+                  onChange={(e) => setOrderSortOrder(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400"
+                >
+                  <option value="newest">Más recientes primero (Ingreso)</option>
+                  <option value="oldest">Más antiguos primero</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Orders List Cards */}
+            {filteredOrders.length === 0 ? (
+              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-12 text-center space-y-3">
+                <Inbox className="w-12 h-12 text-neutral-600 mx-auto" />
+                <h3 className="text-white font-cinzel font-bold text-base">No se encontraron pedidos</h3>
+                <p className="text-neutral-400 text-xs max-w-sm mx-auto">
+                  {orderSearch || orderStatusFilter !== 'all' 
+                    ? 'No hay pedidos que coincidan con la búsqueda o filtro aplicado.' 
+                    : 'Aún no se han recibido pedidos desde el catálogo comercial.'}
+                </p>
+                {(orderSearch || orderStatusFilter !== 'all') && (
+                  <button
+                    onClick={() => { setOrderSearch(''); setOrderStatusFilter('all'); }}
+                    className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold inline-block"
+                  >
+                    Restablecer Filtros
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredOrders.map((proj) => {
+                  const tmpl = templates.find(t => t.id === proj.templateId) || templates[0];
+                  const plan = plans.find(p => p.id === proj.planId) || plans[0];
+                  const targetPayment = payments.find(p => p.projectId === proj.id);
+                  const receiptUrl = proj.receiptUrl || targetPayment?.receiptUrl;
+                  const hasReceipt = Boolean(receiptUrl);
+                  const honoree = proj.honoreeName || 'Sin Nombre Especificado';
+                  const orderNum = proj.orderNumber || `ORD-${proj.id.slice(-6).toUpperCase()}`;
+                  const clientPhone = proj.clientPhone || '';
+                  const cleanPhone = clientPhone ? clientPhone.replace(/[^0-9]/g, '') : '';
+                  const waUrl = cleanPhone 
+                    ? `https://wa.me/${cleanPhone.startsWith('54') ? cleanPhone : '549' + cleanPhone}?text=${encodeURIComponent(`Hola ${honoree}, te saludamos de TuInvitacionDigital por tu pedido de invitación ${orderNum}.`)}`
+                    : `https://wa.me/5493835438603?text=${encodeURIComponent(`Hola ${honoree}, te contactamos por tu pedido ${orderNum}.`)}`;
+
+                  const isNewOrReview = proj.status === 'payment_review' || proj.status === 'pending_payment';
+
+                  return (
+                    <div 
+                      key={proj.id}
+                      className={`p-5 rounded-2xl border transition-all ${
+                        isNewOrReview
+                          ? 'bg-neutral-900 border-amber-500/40 shadow-xl shadow-amber-500/5'
+                          : 'bg-neutral-900/90 border-neutral-800 hover:border-neutral-700'
+                      }`}
+                    >
+                      {/* Top Bar of Card */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-neutral-800">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="px-2.5 py-1 rounded-lg bg-neutral-950 border border-neutral-700 font-mono text-xs font-bold text-amber-300">
+                            #{orderNum}
+                          </span>
+                          <span className="px-2.5 py-1 rounded-lg bg-neutral-800 text-neutral-300 font-semibold capitalize text-[11px]">
+                            {proj.eventType}
+                          </span>
+                          <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold uppercase text-[10px]">
+                            Plan {proj.planId}
+                          </span>
+                          <span className="text-neutral-400 text-[11px] flex items-center gap-1 font-mono">
+                            <Clock className="w-3.5 h-3.5 text-neutral-500" />
+                            {new Date(proj.createdAt).toLocaleDateString('es-AR', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div>
+                          {proj.status === 'payment_review' && (
+                            <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse flex items-center gap-1.5">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                              PAGO EN REVISIÓN • VALIDAR COMPROBANTE
+                            </span>
+                          )}
+                          {proj.status === 'preview_available' && (
+                            <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1.5">
+                              <Eye className="w-3.5 h-3.5 text-blue-400" />
+                              VISTA PREVIA ACTIVA (24H)
+                            </span>
+                          )}
+                          {proj.status === 'published' && (
+                            <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                              APROBADA & PUBLICADA
+                            </span>
+                          )}
+                          {proj.status === 'pending_payment' && (
+                            <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-neutral-800 text-neutral-300 border border-neutral-700 flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-neutral-400" />
+                              PENDIENTE DE PAGO
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Main 3-Column Info Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4 text-xs">
+                        {/* Col 1: Cliente & Contacto */}
+                        <div className="space-y-2 bg-neutral-950/60 p-3.5 rounded-xl border border-neutral-800/80">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
+                            Cliente & Agasajados
+                          </span>
+                          <div className="font-bold text-white text-sm">
+                            {honoree}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-neutral-300">
+                            <Mail className="w-3.5 h-3.5 text-neutral-500 flex-shrink-0" />
+                            <span className="truncate">{proj.clientEmail || 'Sin email'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-neutral-300">
+                            <Phone className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                            <span>{clientPhone || 'No especificado'}</span>
+                          </div>
+                          {cleanPhone && (
+                            <a
+                              href={waUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/30 text-[11px] font-semibold transition-colors mt-1"
+                            >
+                              <Phone className="w-3 h-3 text-emerald-400" />
+                              Abrir Chat WhatsApp
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Col 2: Plantilla & Plan */}
+                        <div className="space-y-2 bg-neutral-950/60 p-3.5 rounded-xl border border-neutral-800/80">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
+                            Servicio Contratado
+                          </span>
+                          <div className="flex items-center gap-2.5">
+                            <img 
+                              src={tmpl.previewImage} 
+                              alt={tmpl.name} 
+                              className="w-10 h-10 rounded-lg object-cover border border-neutral-700 flex-shrink-0"
+                            />
+                            <div>
+                              <div className="font-bold text-white leading-tight">{tmpl.name}</div>
+                              <div className="text-[11px] text-neutral-400">Fecha: {proj.eventDate || tmpl.sampleDate}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between pt-1 border-t border-neutral-800 text-[11px]">
+                            <span className="text-neutral-400">Monto del Plan:</span>
+                            <span className="font-bold font-mono text-amber-300 text-xs">
+                              ${(proj.amount || plan.price).toLocaleString('es-AR')} {proj.currency || plan.currency}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-neutral-400">Medio de Pago:</span>
+                            <span className="font-medium text-neutral-200">
+                              {proj.paymentMethod === 'mercadopago' ? 'Mercado Pago' : 'Transferencia Bancaria'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Col 3: Comprobante & Revisión */}
+                        <div className="space-y-2 bg-neutral-950/60 p-3.5 rounded-xl border border-neutral-800/80 flex flex-col justify-between">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+                              Comprobante Bancario
+                            </span>
+                            {hasReceipt ? (
+                              <div className="flex items-center gap-3">
+                                <img 
+                                  src={receiptUrl} 
+                                  alt="Comprobante" 
+                                  className="w-12 h-12 rounded-lg object-cover border border-amber-500/40 cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => {
+                                    setSelectedReceiptPayment(targetPayment || {
+                                      id: `pay-${proj.id}`,
+                                      projectId: proj.id,
+                                      amount: proj.amount || plan.price,
+                                      currency: proj.currency || plan.currency,
+                                      provider: proj.paymentMethod || 'transfer',
+                                      status: 'review',
+                                      receiptUrl,
+                                      createdAt: proj.createdAt
+                                    });
+                                  }}
+                                />
+                                <div className="space-y-1">
+                                  <span className="text-emerald-400 font-semibold text-[11px] flex items-center gap-1">
+                                    <FileCheck className="w-3.5 h-3.5" />
+                                    Comprobante Adjunto
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedReceiptPayment(targetPayment || {
+                                        id: `pay-${proj.id}`,
+                                        projectId: proj.id,
+                                        amount: proj.amount || plan.price,
+                                        currency: proj.currency || plan.currency,
+                                        provider: proj.paymentMethod || 'transfer',
+                                        status: 'review',
+                                        receiptUrl,
+                                        createdAt: proj.createdAt
+                                      });
+                                    }}
+                                    className="text-amber-400 hover:text-amber-300 text-[11px] font-bold underline block"
+                                  >
+                                    Inspeccionar Comprobante
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-neutral-500 italic py-2 text-[11px]">
+                                El cliente no adjuntó comprobante en el envío.
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="text-[11px] text-neutral-400 font-mono pt-1 border-t border-neutral-800">
+                            Slug: <span className="text-neutral-300">/{proj.publicSlug}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bottom Action Buttons */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-neutral-800">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {/* Primary Action: Approve Order & Enable 24h preview */}
+                          {proj.status !== 'published' && (
+                            <button
+                              onClick={() => confirmOrderAdmin(proj.id)}
+                              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition-all"
+                              title="Valida el pago bancario y habilita la ventana de 24h para el cliente"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>Aprobar Pedido & Habilitar 24h</span>
+                            </button>
+                          )}
+
+                          {/* Quick Edit Modal */}
+                          <button
+                            onClick={() => handleOpenEditModal(proj.id)}
+                            className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-blue-400" />
+                            Editar Textos & Datos
+                          </button>
+
+                          {/* View Live Invitation */}
+                          <a
+                            href={`/invitacion?slug=${proj.publicSlug}&token=${proj.previewToken}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                            Ver Invitación en Vivo
+                          </a>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {hasReceipt && proj.status === 'payment_review' && (
+                            <button
+                              onClick={() => {
+                                setSelectedReceiptPayment(targetPayment || {
+                                  id: `pay-${proj.id}`,
+                                  projectId: proj.id,
+                                  amount: proj.amount || plan.price,
+                                  currency: proj.currency || plan.currency,
+                                  provider: proj.paymentMethod || 'transfer',
+                                  status: 'review',
+                                  receiptUrl,
+                                  createdAt: proj.createdAt
+                                });
+                                setShowRejectModal(true);
+                                setRejectReason('');
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 hover:bg-red-900/60 text-xs font-semibold transition-colors"
+                            >
+                              Rechazar Comprobante
+                            </button>
+                          )}
+
+                          {proj.status === 'preview_available' && (
+                            <button
+                              onClick={() => adminSetProjectStatus(proj.id, 'published')}
+                              className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors"
+                            >
+                              <PlayCircle className="w-4 h-4" />
+                              Publicar Definitiva
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => setOrderToDelete({ id: proj.id, name: honoree || proj.publicSlug })}
+                            className="px-3 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-white border border-red-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                            title="Eliminar este pedido definitivamente del sistema"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                            <span>Eliminar Pedido</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 0. TAB NOTIFICATIONS: ALERTAS DE SERVICIOS CONTRATADOS & COMPROBANTES */}
       {activeAdminTab === 'notifications' && (
@@ -424,7 +1065,10 @@ export const AdminDashboard: React.FC = () => {
               proj.publicSlug.toLowerCase().includes(projectSearch.toLowerCase()) ||
               proj.clientEmail.toLowerCase().includes(projectSearch.toLowerCase()) ||
               proj.eventType.toLowerCase().includes(projectSearch.toLowerCase()) ||
-              proj.planId.toLowerCase().includes(projectSearch.toLowerCase());
+              proj.planId.toLowerCase().includes(projectSearch.toLowerCase()) ||
+              (proj.honoreeName && proj.honoreeName.toLowerCase().includes(projectSearch.toLowerCase())) ||
+              (proj.orderNumber && proj.orderNumber.toLowerCase().includes(projectSearch.toLowerCase())) ||
+              (proj.clientPhone && proj.clientPhone.includes(projectSearch));
             
             const matchesStatus = projectStatusFilter === 'all' || proj.status === projectStatusFilter;
             return matchesSearch && matchesStatus;
@@ -469,7 +1113,7 @@ export const AdminDashboard: React.FC = () => {
                 <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Buscar por slug, email, tipo..."
+                  placeholder="Buscar por slug, email, agasajado, N° pedido..."
                   value={projectSearch}
                   onChange={(e) => setProjectSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400"
@@ -485,6 +1129,7 @@ export const AdminDashboard: React.FC = () => {
                   className="w-full pl-9 pr-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400"
                 >
                   <option value="all">Todos los Estados ({projects.length})</option>
+                  <option value="payment_review">⚡ Pago en Revisión / Ingresante ({projects.filter(p => p.status === 'payment_review').length})</option>
                   <option value="published">Aprobadas / Publicadas ({projects.filter(p => p.status === 'published').length})</option>
                   <option value="preview_available">En Vista Previa / Esperando OK ({projects.filter(p => p.status === 'preview_available').length})</option>
                   <option value="pending_payment">Pendiente de Pago ({projects.filter(p => p.status === 'pending_payment').length})</option>
@@ -666,77 +1311,128 @@ export const AdminDashboard: React.FC = () => {
                         </td>
                       </tr>
                     ) : (
-                      filteredProjects.map((proj) => (
-                        <tr key={proj.id} className="hover:bg-neutral-800/40 transition-colors">
-                          <td className="p-3.5 font-bold font-mono text-white">
-                            <div className="flex items-center gap-1.5">
-                              <span>/{proj.publicSlug}</span>
-                              {proj.status === 'published' && (
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" title="Activa y pública" />
+                      filteredProjects.map((proj) => {
+                        const isReview = proj.status === 'payment_review' || proj.status === 'pending_payment';
+                        return (
+                          <tr key={proj.id} className={`transition-colors ${isReview ? 'bg-amber-500/5 hover:bg-amber-500/10' : 'hover:bg-neutral-800/40'}`}>
+                            <td className="p-3.5 font-mono text-white">
+                              <div className="flex items-center gap-1.5 font-bold">
+                                <span>/{proj.publicSlug}</span>
+                                {proj.status === 'published' && (
+                                  <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" title="Activa y pública" />
+                                )}
+                              </div>
+                              <div className="text-[10px] text-amber-300 font-sans font-semibold mt-0.5">
+                                #{proj.orderNumber || `ORD-${proj.id.slice(-6).toUpperCase()}`}
+                              </div>
+                              {proj.honoreeName && (
+                                <div className="text-[11px] text-neutral-300 font-sans font-medium">
+                                  {proj.honoreeName}
+                                </div>
                               )}
-                            </div>
-                          </td>
-                          <td className="p-3.5 text-neutral-400">{proj.clientEmail}</td>
-                          <td className="p-3.5">
-                            <span className="capitalize">{proj.eventType}</span> • <span className="font-bold text-amber-400 uppercase">{proj.planId}</span>
-                          </td>
-                          <td className="p-3.5">
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                              proj.status === 'published' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                              proj.status === 'preview_available' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                              proj.status === 'pending_payment' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                              'bg-neutral-800 text-neutral-400'
-                            }`}>
-                              {proj.status === 'published' ? 'Aprobada / Online' : proj.status.replace('_', ' ')}
-                            </span>
-                          </td>
-                          <td className="p-3.5 text-neutral-500">{new Date(proj.createdAt).toLocaleDateString()}</td>
-                          <td className="p-3.5 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {/* Quick Edit */}
-                              <button
-                                onClick={() => handleOpenEditModal(proj.id)}
-                                className="px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 font-semibold flex items-center gap-1 transition-colors"
-                                title="Editar datos del evento (fecha, lugar, textos)"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                                Modificar
-                              </button>
-
-                              {/* Publish / Pause */}
-                              {proj.status !== 'published' ? (
-                                <button
-                                  onClick={() => adminSetProjectStatus(proj.id, 'published')}
-                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1 transition-colors"
-                                  title="Aprobar y Publicar Inmediatamente"
-                                >
-                                  <PlayCircle className="w-3.5 h-3.5" />
-                                  Publicar
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => adminSetProjectStatus(proj.id, 'draft')}
-                                  className="px-2.5 py-1 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold flex items-center gap-1 transition-colors"
-                                  title="Pausar Publicación"
-                                >
-                                  <PauseCircle className="w-3.5 h-3.5" />
-                                  Pausar
-                                </button>
+                            </td>
+                            <td className="p-3.5 text-neutral-400">
+                              <div className="text-white text-xs">{proj.clientEmail}</div>
+                              {proj.clientPhone && (
+                                <div className="text-emerald-400 text-[11px] font-mono mt-0.5">
+                                  {proj.clientPhone}
+                                </div>
                               )}
+                            </td>
+                            <td className="p-3.5">
+                              <div>
+                                <span className="capitalize">{proj.eventType}</span> • <span className="font-bold text-amber-400 uppercase">{proj.planId}</span>
+                              </div>
+                              {proj.amount && (
+                                <div className="text-[11px] font-mono text-neutral-400 mt-0.5">
+                                  ${proj.amount.toLocaleString('es-AR')} {proj.currency || 'ARS'}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-3.5">
+                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1 ${
+                                proj.status === 'published' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                                proj.status === 'preview_available' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                                proj.status === 'payment_review' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse' :
+                                proj.status === 'pending_payment' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                'bg-neutral-800 text-neutral-400'
+                              }`}>
+                                {proj.status === 'payment_review' && <AlertTriangle className="w-3 h-3 text-amber-400" />}
+                                {proj.status === 'payment_review' ? 'Pago en Revisión' :
+                                 proj.status === 'published' ? 'Aprobada / Online' : 
+                                 proj.status === 'preview_available' ? 'Vista Previa (24h)' : 
+                                 proj.status.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="p-3.5 text-neutral-500">{new Date(proj.createdAt).toLocaleDateString()}</td>
+                            <td className="p-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {/* Quick Approve for incoming order */}
+                                {isReview && (
+                                  <button
+                                    onClick={() => confirmOrderAdmin(proj.id)}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1 transition-colors text-[11px] shadow-sm"
+                                    title="Aprobar pago y habilitar 24h"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    Aprobar Pedido
+                                  </button>
+                                )}
 
-                              {/* Select & View */}
-                              <button
-                                onClick={() => setSelectedProjectId(proj.id)}
-                                className="px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 flex items-center gap-1 transition-colors"
-                                title="Ver en simulador y editar en detalle"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                Ver
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                                {/* Quick Edit */}
+                                <button
+                                  onClick={() => handleOpenEditModal(proj.id)}
+                                  className="px-2.5 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 font-semibold flex items-center gap-1 transition-colors"
+                                  title="Editar datos del evento (fecha, lugar, textos)"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  Modificar
+                                </button>
+
+                                {/* Publish / Pause */}
+                                {proj.status !== 'published' ? (
+                                  <button
+                                    onClick={() => adminSetProjectStatus(proj.id, 'published')}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1 transition-colors"
+                                    title="Aprobar y Publicar Inmediatamente"
+                                  >
+                                    <PlayCircle className="w-3.5 h-3.5" />
+                                    Publicar
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => adminSetProjectStatus(proj.id, 'draft')}
+                                    className="px-2.5 py-1 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold flex items-center gap-1 transition-colors"
+                                    title="Pausar Publicación"
+                                  >
+                                    <PauseCircle className="w-3.5 h-3.5" />
+                                    Pausar
+                                  </button>
+                                )}
+
+                                {/* Select & View */}
+                                <button
+                                  onClick={() => setSelectedProjectId(proj.id)}
+                                  className="px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 flex items-center gap-1 transition-colors"
+                                  title="Ver en simulador y editar en detalle"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  Ver
+                                </button>
+
+                                {/* Delete Event / Order */}
+                                <button
+                                  onClick={() => setOrderToDelete({ id: proj.id, name: proj.honoreeName || proj.publicSlug, isProjectOnly: true })}
+                                  className="px-2 py-1 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-white border border-red-500/30 flex items-center gap-1 transition-colors"
+                                  title="Eliminar evento definitivamente"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -1291,6 +1987,207 @@ export const AdminDashboard: React.FC = () => {
                 Confirmar Rechazo
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN DE PEDIDO / PROYECTO */}
+      {orderToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-neutral-900 border border-red-500/40 rounded-2xl max-w-md w-full p-6 text-white shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 flex-shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-white">¿Eliminar {orderToDelete.isProjectOnly ? 'Evento' : 'Pedido'}?</h3>
+                <p className="text-xs text-neutral-400">Esta acción removerá el registro permanentemente</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-neutral-950 rounded-xl border border-neutral-800 text-xs space-y-1.5">
+              <div className="text-neutral-400 text-[11px] uppercase tracking-wider font-semibold">Registro Seleccionado:</div>
+              <div className="font-bold text-white text-sm flex items-center gap-2">
+                <span>{orderToDelete.name}</span>
+              </div>
+              <div className="text-[11px] text-neutral-400 font-mono">
+                Identificador: {orderToDelete.id}
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-300 leading-relaxed">
+              Al confirmar, se eliminarán los datos del pedido, comprobantes de pago asociados, configuración y enlaces activos de la plataforma.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-800">
+              <button
+                onClick={() => setOrderToDelete(null)}
+                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmDeleteOrder}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-red-600/30 transition-all"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Confirmar y Eliminar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PARA CARGAR NUEVO PEDIDO MANUALMENTE */}
+      {showManualOrderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl max-w-lg w-full p-6 text-white shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white">Ingresar Nuevo Pedido Manual</h3>
+                  <p className="text-[11px] text-neutral-400">Registra un encargo directo de un cliente</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowManualOrderModal(false)}
+                className="text-neutral-400 hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateManualOrder} className="space-y-3.5 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Nombre Agasajado(s) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={manualOrderForm.honoreeName}
+                    onChange={(e) => setManualOrderForm(prev => ({ ...prev, honoreeName: e.target.value }))}
+                    placeholder="Ej: Camila & Gonzalo"
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-amber-400 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Email Cliente *</label>
+                  <input
+                    type="email"
+                    required
+                    value={manualOrderForm.clientEmail}
+                    onChange={(e) => setManualOrderForm(prev => ({ ...prev, clientEmail: e.target.value }))}
+                    placeholder="cliente@gmail.com"
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-amber-400 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-neutral-300 mb-1">WhatsApp de Contacto</label>
+                  <input
+                    type="text"
+                    value={manualOrderForm.clientPhone}
+                    onChange={(e) => setManualOrderForm(prev => ({ ...prev, clientPhone: e.target.value }))}
+                    placeholder="+54 9 11 5555 4321"
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-amber-400 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Fecha del Evento</label>
+                  <input
+                    type="date"
+                    value={manualOrderForm.eventDate}
+                    onChange={(e) => setManualOrderForm(prev => ({ ...prev, eventDate: e.target.value }))}
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-amber-400 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Tipo de Evento</label>
+                  <select
+                    value={manualOrderForm.eventType}
+                    onChange={(e) => {
+                      const newType = e.target.value as EventType;
+                      const matchedTmpl = templates.find(t => t.category === newType) || templates[0];
+                      setManualOrderForm(prev => ({ 
+                        ...prev, 
+                        eventType: newType,
+                        templateId: matchedTmpl.id
+                      }));
+                    }}
+                    className="w-full px-2.5 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-amber-400 text-xs capitalize"
+                  >
+                    <option value="boda">Boda</option>
+                    <option value="xv">Quince Años (XV)</option>
+                    <option value="bautismo">Bautismo</option>
+                    <option value="cumple">Cumpleaños</option>
+                    <option value="corporativo">Corporativo</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Plan</label>
+                  <select
+                    value={manualOrderForm.planId}
+                    onChange={(e) => setManualOrderForm(prev => ({ ...prev, planId: e.target.value as PlanTier }))}
+                    className="w-full px-2.5 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-amber-400 text-xs uppercase"
+                  >
+                    <option value="bronce">Bronce</option>
+                    <option value="plata">Plata</option>
+                    <option value="oro">Oro</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Medio de Pago</label>
+                  <select
+                    value={manualOrderForm.paymentMethod}
+                    onChange={(e) => setManualOrderForm(prev => ({ ...prev, paymentMethod: e.target.value as any }))}
+                    className="w-full px-2.5 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-amber-400 text-xs"
+                  >
+                    <option value="transfer">Transferencia</option>
+                    <option value="mercadopago">Mercado Pago</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-neutral-300 mb-1">Plantilla / Diseño Base</label>
+                <select
+                  value={manualOrderForm.templateId}
+                  onChange={(e) => setManualOrderForm(prev => ({ ...prev, templateId: e.target.value }))}
+                  className="w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-amber-400 text-xs"
+                >
+                  {templates.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.category.toUpperCase()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setShowManualOrderModal(false)}
+                  className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Crear Pedido e Ingresar</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
