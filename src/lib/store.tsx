@@ -88,6 +88,7 @@ interface StoreContextType {
   submitRsvp: (data: Omit<Rsvp, 'id' | 'createdAt'>) => void;
   previewTemplate: (template: DesignTemplate) => void;
   resetAllData: () => void;
+  restoreDefaultOrders: () => void;
   reloadFromStorage: () => void;
   exportDatabaseJson: () => string;
 }
@@ -169,9 +170,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const loginAdmin = (secretKey: string): boolean => {
     const raw = secretKey.trim();
-    // Clave exacta solicitada: 'Maximo1822.@'
-    // También permitimos sin distinción de mayúsculas si coincide la estructura
-    if (raw === 'Maximo1822.@' || raw.toLowerCase() === 'maximo1822.@') {
+    // Clave maestra: 'Maximo1822.@', o variantes 'Maximo1822', 'maximo1822.@', 'maximo1822'
+    if (
+      raw === 'Maximo1822.@' || 
+      raw.toLowerCase() === 'maximo1822.@' || 
+      raw.toLowerCase() === 'maximo1822' || 
+      raw === 'Maximo1822'
+    ) {
       setCurrentUser(ADMIN_USER);
       return true;
     }
@@ -722,11 +727,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createdAt: now.toISOString()
     };
 
+    // Ensure the new project ID is never blocked by deletedIds
+    try {
+      const deletedIds = getDeletedIds();
+      if (deletedIds.includes(projectId)) {
+        const cleaned = deletedIds.filter(id => id !== projectId);
+        localStorage.setItem(`${STORAGE_KEY}_deleted_ids`, JSON.stringify(cleaned));
+      }
+    } catch (e) {}
+
+    // Auto-login client session if not admin
+    if (currentUser.role !== 'admin') {
+      setCurrentUser({
+        id: `client-${projectId}`,
+        email: data.clientEmail || 'cliente@invitarte.com',
+        displayName: data.honoreeName || 'Cliente Agasajado',
+        role: 'client',
+        createdAt: now.toISOString()
+      });
+    }
+
     // Update state
-    setProjects(prev => [newProject, ...prev]);
+    setProjects(prev => [newProject, ...prev.filter(p => p.id !== projectId)]);
     setEventSettingsMap(prev => ({ ...prev, [projectId]: newSettings }));
-    setPayments(prev => [newPayment, ...prev]);
-    setAdminNotifications(prev => [notif, ...prev]);
+    setPayments(prev => [newPayment, ...prev.filter(p => p.id !== paymentId)]);
+    setAdminNotifications(prev => [notif, ...prev.filter(n => n.id !== notif.id)]);
     setSelectedProjectId(projectId);
 
     // Write immediately to localStorage to guarantee cross-view persistence
@@ -748,10 +773,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       localStorage.setItem(`${STORAGE_KEY}_admin_notifications`, JSON.stringify([notif, ...existingNotifs]));
     } catch (e) {
       console.warn('LocalStorage write warning:', e);
-    }
-
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('invitarte_store_updated'));
     }
 
     return newProject;
@@ -1288,6 +1309,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const restoreDefaultOrders = () => {
+    try {
+      localStorage.removeItem(`${STORAGE_KEY}_deleted_ids`);
+      const initialIds = INITIAL_PROJECTS.map(p => p.id);
+      const customProjects = projects.filter(p => !initialIds.includes(p.id));
+      const combinedProjects = [...customProjects, ...INITIAL_PROJECTS];
+      
+      setProjects(combinedProjects);
+      localStorage.setItem(`${STORAGE_KEY}_projects`, JSON.stringify(combinedProjects));
+
+      const initialPaymentIds = INITIAL_PAYMENTS.map(p => p.id);
+      const customPayments = payments.filter(p => !initialPaymentIds.includes(p.id));
+      const combinedPayments = [...customPayments, ...INITIAL_PAYMENTS];
+      setPayments(combinedPayments);
+      localStorage.setItem(`${STORAGE_KEY}_payments`, JSON.stringify(combinedPayments));
+
+      const initialNotifIds = INITIAL_NOTIFICATIONS.map(n => n.id);
+      const customNotifs = adminNotifications.filter(n => !initialNotifIds.includes(n.id));
+      const combinedNotifs = [...customNotifs, ...INITIAL_NOTIFICATIONS];
+      setAdminNotifications(combinedNotifs);
+      localStorage.setItem(`${STORAGE_KEY}_admin_notifications`, JSON.stringify(combinedNotifs));
+
+      if (combinedProjects.length > 0 && !selectedProjectId) {
+        setSelectedProjectId(combinedProjects[0].id);
+      }
+    } catch (e) {
+      console.error('Error restoring default orders:', e);
+    }
+  };
+
   const exportDatabaseJson = (): string => {
     return JSON.stringify({
       version: '1.0',
@@ -1352,6 +1403,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       submitRsvp,
       previewTemplate,
       resetAllData,
+      restoreDefaultOrders,
       reloadFromStorage,
       exportDatabaseJson
     }}>

@@ -67,10 +67,10 @@ export const ClientLoginGate: React.FC<ClientLoginGateProps> = ({ onSuccess, onG
             Evento Activo Asociado
           </div>
           <div className="text-sm font-cinzel font-bold text-white">
-            Boda Sofía & Mateo
+            {currentProject.honoreeName || 'Celebración'}
           </div>
           <div className="text-neutral-400 text-[11px]">
-            Plan Oro • Enlace público: /{currentProject.publicSlug}
+            Plan {currentProject.planId?.toUpperCase() || 'ORO'} • Enlace público: /{currentProject.publicSlug}
           </div>
         </div>
 

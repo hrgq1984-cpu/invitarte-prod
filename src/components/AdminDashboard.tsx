@@ -59,6 +59,7 @@ export const AdminDashboard: React.FC = () => {
     deleteOrder,
     simulateTestOrder,
     createOrder,
+    restoreDefaultOrders,
     blessings, 
     moderateBlessing, 
     photos, 
@@ -148,11 +149,18 @@ export const AdminDashboard: React.FC = () => {
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
   const [orderSortOrder, setOrderSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [refreshFeedback, setRefreshFeedback] = useState(false);
+  const [restoreNotice, setRestoreNotice] = useState<string | null>(null);
 
   const handleManualRefresh = () => {
     reloadFromStorage();
     setRefreshFeedback(true);
     setTimeout(() => setRefreshFeedback(false), 2000);
+  };
+
+  const handleRestoreDefaults = () => {
+    restoreDefaultOrders();
+    setRestoreNotice('¡Pedidos predeterminados y bandeja restaurados exitosamente!');
+    setTimeout(() => setRestoreNotice(null), 4000);
   };
 
   const pendingOrdersCount = projects.filter(p => p.status === 'payment_review' || p.status === 'pending_payment').length;
@@ -474,6 +482,15 @@ export const AdminDashboard: React.FC = () => {
                 </button>
 
                 <button
+                  onClick={handleRestoreDefaults}
+                  className="px-3 py-2 rounded-xl bg-neutral-850 hover:bg-neutral-750 text-neutral-300 border border-neutral-700/80 font-medium flex items-center gap-1.5 transition-all text-xs"
+                  title="Restaurar pedidos demo y limpiar papelera de eliminados"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Restaurar Predeterminados</span>
+                </button>
+
+                <button
                   onClick={handleManualRefresh}
                   className="px-3 py-2 rounded-xl bg-neutral-850 hover:bg-neutral-750 text-neutral-300 border border-neutral-700/80 font-medium flex items-center gap-1.5 transition-all text-xs"
                   title="Recargar datos de almacenamiento"
@@ -484,7 +501,22 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Test Order / Delete Notice Alerts */}
+            {/* Test Order / Restore / Delete Notice Alerts */}
+            {restoreNotice && (
+              <div className="p-3.5 rounded-xl bg-blue-500/15 border border-blue-500/40 text-blue-300 text-xs flex items-center justify-between animate-fadeIn">
+                <div className="flex items-center gap-2 font-medium">
+                  <CheckCircle2 className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <span>{restoreNotice}</span>
+                </div>
+                <button 
+                  onClick={() => setRestoreNotice(null)}
+                  className="text-neutral-400 hover:text-white text-xs p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             {testOrderNotice && (
               <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs flex items-center justify-between animate-fadeIn">
                 <div className="flex items-center gap-2 font-medium">
@@ -610,22 +642,40 @@ export const AdminDashboard: React.FC = () => {
 
             {/* Orders List Cards */}
             {filteredOrders.length === 0 ? (
-              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-12 text-center space-y-3">
+              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-12 text-center space-y-4">
                 <Inbox className="w-12 h-12 text-neutral-600 mx-auto" />
-                <h3 className="text-white font-cinzel font-bold text-base">No se encontraron pedidos</h3>
-                <p className="text-neutral-400 text-xs max-w-sm mx-auto">
-                  {orderSearch || orderStatusFilter !== 'all' 
-                    ? 'No hay pedidos que coincidan con la búsqueda o filtro aplicado.' 
-                    : 'Aún no se han recibido pedidos desde el catálogo comercial.'}
-                </p>
-                {(orderSearch || orderStatusFilter !== 'all') && (
+                <div className="space-y-1">
+                  <h3 className="text-white font-cinzel font-bold text-base">No se encontraron pedidos</h3>
+                  <p className="text-neutral-400 text-xs max-w-sm mx-auto">
+                    {orderSearch || orderStatusFilter !== 'all' 
+                      ? 'No hay pedidos que coincidan con la búsqueda o filtro aplicado.' 
+                      : 'Aún no se han recibido pedidos o se limpió la papelera. Puedes generar uno de prueba o restaurar los predeterminados.'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                  {(orderSearch || orderStatusFilter !== 'all') && (
+                    <button
+                      onClick={() => { setOrderSearch(''); setOrderStatusFilter('all'); }}
+                      className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold inline-block"
+                    >
+                      Restablecer Filtros
+                    </button>
+                  )}
                   <button
-                    onClick={() => { setOrderSearch(''); setOrderStatusFilter('all'); }}
-                    className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold inline-block"
+                    onClick={handleSimulateTestOrder}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20"
                   >
-                    Restablecer Filtros
+                    <Zap className="w-3.5 h-3.5 fill-neutral-950 text-neutral-950" />
+                    <span>⚡ Generar Pedido de Prueba</span>
                   </button>
-                )}
+                  <button
+                    onClick={handleRestoreDefaults}
+                    className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 font-semibold text-xs flex items-center gap-1.5"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Restaurar Pedidos Predeterminados</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
