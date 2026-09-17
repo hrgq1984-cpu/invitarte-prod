@@ -59,6 +59,7 @@ export const AdminDashboard: React.FC = () => {
     deleteOrder,
     simulateTestOrder,
     createOrder,
+    deleteAllOrders,
     restoreDefaultOrders,
     blessings, 
     moderateBlessing, 
@@ -82,6 +83,7 @@ export const AdminDashboard: React.FC = () => {
   // Deletion state
   const [orderToDelete, setOrderToDelete] = useState<{ id: string; name: string; isProjectOnly?: boolean } | null>(null);
   const [deleteSuccessMessage, setDeleteSuccessMessage] = useState<string | null>(null);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
 
   // Instant Test Order Simulation state
   const [testOrderNotice, setTestOrderNotice] = useState<string | null>(null);
@@ -100,7 +102,7 @@ export const AdminDashboard: React.FC = () => {
     receiptUrl: string;
   }>({
     eventType: 'boda',
-    templateId: 'boda-elegante',
+    templateId: 'boda-champagne',
     planId: 'oro',
     clientEmail: '',
     honoreeName: '',
@@ -114,6 +116,13 @@ export const AdminDashboard: React.FC = () => {
     const newOrd = simulateTestOrder();
     setTestOrderNotice(`¡Pedido #${newOrd.orderNumber || newOrd.id} creado con éxito para ${newOrd.honoreeName}!`);
     setTimeout(() => setTestOrderNotice(null), 4000);
+  };
+
+  const handleConfirmDeleteAllOrders = () => {
+    deleteAllOrders();
+    setShowDeleteAllModal(false);
+    setDeleteSuccessMessage('Se han eliminado todos los pedidos de la base de datos.');
+    setTimeout(() => setDeleteSuccessMessage(null), 4000);
   };
 
   const handleConfirmDeleteOrder = () => {
@@ -482,12 +491,12 @@ export const AdminDashboard: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={handleRestoreDefaults}
-                  className="px-3 py-2 rounded-xl bg-neutral-850 hover:bg-neutral-750 text-neutral-300 border border-neutral-700/80 font-medium flex items-center gap-1.5 transition-all text-xs"
-                  title="Restaurar pedidos demo y limpiar papelera de eliminados"
+                  onClick={() => setShowDeleteAllModal(true)}
+                  className="px-3.5 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/60 font-semibold flex items-center gap-1.5 transition-all text-xs"
+                  title="Eliminar todos los pedidos de la base de datos"
                 >
-                  <RotateCcw className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Restaurar Predeterminados</span>
+                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                  <span>Vaciar Pedidos</span>
                 </button>
 
                 <button
@@ -645,35 +654,38 @@ export const AdminDashboard: React.FC = () => {
               <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-12 text-center space-y-4">
                 <Inbox className="w-12 h-12 text-neutral-600 mx-auto" />
                 <div className="space-y-1">
-                  <h3 className="text-white font-cinzel font-bold text-base">No se encontraron pedidos</h3>
+                  <h3 className="text-white font-cinzel font-bold text-base">
+                    {projects.length > 0 ? 'Filtros sin resultados' : 'Bandeja de pedidos vacía'}
+                  </h3>
                   <p className="text-neutral-400 text-xs max-w-sm mx-auto">
-                    {orderSearch || orderStatusFilter !== 'all' 
-                      ? 'No hay pedidos que coincidan con la búsqueda o filtro aplicado.' 
-                      : 'Aún no se han recibido pedidos o se limpió la papelera. Puedes generar uno de prueba o restaurar los predeterminados.'}
+                    {projects.length > 0
+                      ? `Hay ${projects.length} pedido(s) registrado(s) en la base de datos pero están ocultos por los filtros de estado o término de búsqueda.`
+                      : 'No hay pedidos en la base de datos. Puedes generar un pedido de prueba con comprobante o registrar un nuevo pedido manualmente.'}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
                   {(orderSearch || orderStatusFilter !== 'all') && (
                     <button
                       onClick={() => { setOrderSearch(''); setOrderStatusFilter('all'); }}
-                      className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold inline-block"
+                      className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold inline-flex items-center gap-1.5 shadow-md shadow-amber-500/20"
                     >
-                      Restablecer Filtros
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Mostrar Todos ({projects.length})</span>
                     </button>
                   )}
                   <button
                     onClick={handleSimulateTestOrder}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20"
+                    className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-semibold text-xs flex items-center gap-1.5"
                   >
-                    <Zap className="w-3.5 h-3.5 fill-neutral-950 text-neutral-950" />
-                    <span>⚡ Generar Pedido de Prueba</span>
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <span>⚡ Pedido de Prueba</span>
                   </button>
                   <button
-                    onClick={handleRestoreDefaults}
-                    className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 font-semibold text-xs flex items-center gap-1.5"
+                    onClick={() => setShowManualOrderModal(true)}
+                    className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-semibold text-xs flex items-center gap-1.5"
                   >
-                    <RotateCcw className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Restaurar Pedidos Predeterminados</span>
+                    <Plus className="w-3.5 h-3.5 text-amber-400" />
+                    <span>+ Nuevo Pedido</span>
                   </button>
                 </div>
               </div>
@@ -2165,7 +2177,7 @@ export const AdminDashboard: React.FC = () => {
                     value={manualOrderForm.eventType}
                     onChange={(e) => {
                       const newType = e.target.value as EventType;
-                      const matchedTmpl = templates.find(t => t.category === newType) || templates[0];
+                      const matchedTmpl = templates.find(t => t.eventType === newType) || templates[0];
                       setManualOrderForm(prev => ({ 
                         ...prev, 
                         eventType: newType,
@@ -2175,10 +2187,12 @@ export const AdminDashboard: React.FC = () => {
                     className="w-full px-2.5 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white focus:outline-none focus:border-amber-400 text-xs capitalize"
                   >
                     <option value="boda">Boda</option>
-                    <option value="xv">Quince Años (XV)</option>
+                    <option value="15anos">15 Años (XV)</option>
+                    <option value="cumpleanos">Cumpleaños</option>
                     <option value="bautismo">Bautismo</option>
-                    <option value="cumple">Cumpleaños</option>
-                    <option value="corporativo">Corporativo</option>
+                    <option value="comunion">Primera Comunión</option>
+                    <option value="confirmacion">Confirmación</option>
+                    <option value="otros">Otros Eventos</option>
                   </select>
                 </div>
                 <div>
@@ -2215,7 +2229,7 @@ export const AdminDashboard: React.FC = () => {
                 >
                   {templates.map(t => (
                     <option key={t.id} value={t.id}>
-                      {t.name} ({t.category.toUpperCase()})
+                      {t.name} ({t.eventType.toUpperCase()})
                     </option>
                   ))}
                 </select>
@@ -2238,6 +2252,40 @@ export const AdminDashboard: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal to Empty / Delete All Orders */}
+      {showDeleteAllModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-neutral-900 border border-red-800/60 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-scaleUp">
+            <div className="w-12 h-12 rounded-full bg-red-950/60 border border-red-500/30 flex items-center justify-center mx-auto text-red-400">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1">
+              <h3 className="text-lg font-bold text-white">¿Eliminar TODOS los pedidos?</h3>
+              <p className="text-neutral-400 text-xs leading-relaxed">
+                Esta acción vaciará por completo la bandeja de pedidos, pagos y notificaciones de prueba de la base de datos local. Esta acción es permanente.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteAllModal(false)}
+                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold transition-colors flex-1"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteAllOrders}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 flex-1 shadow-lg shadow-red-600/20"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Confirmar y Vaciar</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

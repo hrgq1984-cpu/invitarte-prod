@@ -76,6 +76,7 @@ interface StoreContextType {
     paymentMethod?: 'transfer' | 'mercadopago';
   }) => Project;
   simulateTestOrder: () => Project;
+  deleteAllOrders: () => void;
   deleteProject: (projectId: string) => void;
   deleteOrder: (projectId: string) => void;
   submitPayment: (projectId: string, provider: 'mercadopago' | 'transfer', receiptUrl?: string) => PaymentTransaction;
@@ -95,12 +96,20 @@ interface StoreContextType {
 
 const STORAGE_KEY = 'invitarte_v1_store';
 
+export const DEMO_TEST_PROJECT_IDS = [
+  'proj-boda-camila-lautaro-2026',
+  'proj-15an-valentina-2026',
+  'proj-bautismo-mateo-2026',
+  'proj-comunion-santiago-2026'
+];
+
 const getDeletedIds = (): string[] => {
   try {
     const raw = localStorage.getItem(`${STORAGE_KEY}_deleted_ids`);
-    return raw ? JSON.parse(raw) : [];
+    const saved: string[] = raw ? JSON.parse(raw) : [];
+    return Array.from(new Set([...saved, ...DEMO_TEST_PROJECT_IDS]));
   } catch (e) {
-    return [];
+    return DEMO_TEST_PROJECT_IDS;
   }
 };
 
@@ -316,6 +325,38 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   // Sync state changes with localStorage
+  useEffect(() => {
+    try {
+      const savedProjects = localStorage.getItem(`${STORAGE_KEY}_projects`);
+      if (savedProjects) {
+        const parsed: Project[] = JSON.parse(savedProjects);
+        if (Array.isArray(parsed) && parsed.some(p => DEMO_TEST_PROJECT_IDS.includes(p.id))) {
+          const cleaned = parsed.filter(p => !DEMO_TEST_PROJECT_IDS.includes(p.id));
+          localStorage.setItem(`${STORAGE_KEY}_projects`, JSON.stringify(cleaned));
+          setProjects(cleaned);
+        }
+      }
+      const savedPayments = localStorage.getItem(`${STORAGE_KEY}_payments`);
+      if (savedPayments) {
+        const parsed: PaymentTransaction[] = JSON.parse(savedPayments);
+        if (Array.isArray(parsed) && parsed.some(p => DEMO_TEST_PROJECT_IDS.includes(p.projectId))) {
+          const cleaned = parsed.filter(p => !DEMO_TEST_PROJECT_IDS.includes(p.projectId));
+          localStorage.setItem(`${STORAGE_KEY}_payments`, JSON.stringify(cleaned));
+          setPayments(cleaned);
+        }
+      }
+      const savedNotifs = localStorage.getItem(`${STORAGE_KEY}_admin_notifications`);
+      if (savedNotifs) {
+        const parsed: AdminNotification[] = JSON.parse(savedNotifs);
+        if (Array.isArray(parsed) && parsed.some(n => DEMO_TEST_PROJECT_IDS.includes(n.projectId))) {
+          const cleaned = parsed.filter(n => !DEMO_TEST_PROJECT_IDS.includes(n.projectId));
+          localStorage.setItem(`${STORAGE_KEY}_admin_notifications`, JSON.stringify(cleaned));
+          setAdminNotifications(cleaned);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY}_plans`, JSON.stringify(plans));
   }, [plans]);
@@ -775,6 +816,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.warn('LocalStorage write warning:', e);
     }
 
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('invitarte_store_updated'));
+    }
+
     return newProject;
   };
 
@@ -792,7 +837,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }> = [
       {
         eventType: 'boda',
-        templateId: 'boda-elegante',
+        templateId: 'boda-champagne',
         planId: 'oro',
         clientEmail: 'sofia.mateo@gmail.com',
         honoreeName: 'Sofía & Mateo',
@@ -803,7 +848,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       },
       {
         eventType: '15anos',
-        templateId: '15anos-glamour',
+        templateId: '15-blush',
         planId: 'plata',
         clientEmail: 'martina.quince@gmail.com',
         honoreeName: 'Martina Paz',
@@ -814,7 +859,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       },
       {
         eventType: 'cumpleanos',
-        templateId: 'cumpleanos-dorado',
+        templateId: 'cumple-colorido',
         planId: 'bronce',
         clientEmail: 'gonzalo.cumple@gmail.com',
         honoreeName: 'Gonzalo Fernández (40 Años)',
@@ -825,7 +870,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       },
       {
         eventType: 'bautismo',
-        templateId: 'bautismo-angelical',
+        templateId: 'bautismo-celestial',
         planId: 'plata',
         clientEmail: 'lucia.bautismo@gmail.com',
         honoreeName: 'Lucía Milagros',
@@ -842,6 +887,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...pick,
       honoreeName: `${pick.honoreeName} #${randomSuffix}`
     });
+  };
+
+  const deleteAllOrders = () => {
+    try {
+      const allIds = projects.map(p => p.id);
+      const deletedIds = getDeletedIds();
+      const updatedDeleted = Array.from(new Set([...deletedIds, ...allIds, ...DEMO_TEST_PROJECT_IDS]));
+      localStorage.setItem(`${STORAGE_KEY}_deleted_ids`, JSON.stringify(updatedDeleted));
+      localStorage.setItem(`${STORAGE_KEY}_projects`, JSON.stringify([]));
+      localStorage.setItem(`${STORAGE_KEY}_payments`, JSON.stringify([]));
+      localStorage.setItem(`${STORAGE_KEY}_admin_notifications`, JSON.stringify([]));
+
+      setProjects([]);
+      setPayments([]);
+      setAdminNotifications([]);
+      setSelectedProjectId(REFERENCE_PROJECT.id);
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('invitarte_store_updated'));
+      }
+    } catch (e) {
+      console.error('Error deleting all orders:', e);
+    }
   };
 
   const deleteProject = (projectId: string) => {
@@ -1297,7 +1365,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.removeItem(`${STORAGE_KEY}_deleted_ids`);
     setPlans(INITIAL_PLANS);
     setProjects(INITIAL_PROJECTS);
-    setSelectedProjectId(INITIAL_PROJECTS[0].id);
+    setSelectedProjectId(INITIAL_PROJECTS[0]?.id || REFERENCE_PROJECT.id);
     setEventSettingsMap(INITIAL_EVENT_SETTINGS_MAP);
     setGuestsMap({ [REFERENCE_PROJECT.id]: REFERENCE_GUESTS });
     setBlessingsMap({ [REFERENCE_PROJECT.id]: REFERENCE_BLESSINGS });
@@ -1391,6 +1459,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       deleteAdminNotification,
       createOrder,
       simulateTestOrder,
+      deleteAllOrders,
       deleteProject,
       deleteOrder,
       submitPayment,

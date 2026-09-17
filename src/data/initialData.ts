@@ -674,12 +674,7 @@ export const ORDER_MATEO_GAEL: Project = {
   updatedAt: '2026-09-15T18:00:00.000Z'
 };
 
-export const INITIAL_PROJECTS: Project[] = [
-  ORDER_CAMILA_LAUTARO,
-  ORDER_VALENTINA_MORALES,
-  ORDER_MATEO_GAEL,
-  REFERENCE_PROJECT
-];
+export const INITIAL_PROJECTS: Project[] = [];
 
 export const REFERENCE_EVENT_SETTINGS: EventSettings = {
   projectId: 'proj-comunion-santiago-2026',
@@ -993,83 +988,6 @@ export const REFERENCE_EVENT_PHOTOS: EventPhoto[] = [
   }
 ];
 
-export const INITIAL_PAYMENTS: PaymentTransaction[] = [
-  {
-    id: 'pay-boda-5120',
-    projectId: ORDER_CAMILA_LAUTARO.id,
-    provider: 'transfer',
-    providerPaymentId: 'TRF-11884422',
-    amount: 60000,
-    currency: 'ARS',
-    status: 'review',
-    receiptUrl: ORDER_CAMILA_LAUTARO.receiptUrl,
-    createdAt: '2026-09-16T10:15:00.000Z'
-  },
-  {
-    id: 'pay-15an-7842',
-    projectId: ORDER_VALENTINA_MORALES.id,
-    provider: 'transfer',
-    providerPaymentId: 'TRF-99443311',
-    amount: 52000,
-    currency: 'ARS',
-    status: 'review',
-    receiptUrl: ORDER_VALENTINA_MORALES.receiptUrl,
-    createdAt: '2026-09-16T09:40:00.000Z'
-  },
-  {
-    id: 'pay-baut-9204',
-    projectId: ORDER_MATEO_GAEL.id,
-    provider: 'transfer',
-    providerPaymentId: 'TRF-77665544',
-    amount: 45000,
-    currency: 'ARS',
-    status: 'completed',
-    paidAt: '2026-09-15T18:00:00.000Z',
-    receiptUrl: ORDER_MATEO_GAEL.receiptUrl,
-    createdAt: '2026-09-15T17:30:00.000Z'
-  },
-  {
-    id: 'pay-ref-001',
-    projectId: REFERENCE_PROJECT.id,
-    provider: 'transfer',
-    providerPaymentId: 'TRF-98421054',
-    amount: 60000,
-    currency: 'ARS',
-    status: 'completed',
-    paidAt: '2026-09-12T14:30:00.000Z',
-    createdAt: '2026-09-12T14:28:00.000Z'
-  }
-];
+export const INITIAL_PAYMENTS: PaymentTransaction[] = [];
 
-export const INITIAL_NOTIFICATIONS: AdminNotification[] = [
-  {
-    id: 'notif-boda-5120',
-    type: 'receipt_uploaded',
-    title: 'Nuevo Pedido #ORD-BODA-5120 (ORO)',
-    message: 'Camila & Lautaro contrataron Boda Elegante. Comprobante bancario adjunto listo para validar y habilitar 24h.',
-    projectId: ORDER_CAMILA_LAUTARO.id,
-    paymentId: 'pay-boda-5120',
-    read: false,
-    createdAt: '2026-09-16T10:15:00.000Z'
-  },
-  {
-    id: 'notif-15an-7842',
-    type: 'receipt_uploaded',
-    title: 'Nuevo Pedido #ORD-15AN-7842 (PLATA)',
-    message: 'Valentina Morales contrató Mis 15 Años Glamour. Comprobante bancario adjunto listo para validar y habilitar 24h.',
-    projectId: ORDER_VALENTINA_MORALES.id,
-    paymentId: 'pay-15an-7842',
-    read: false,
-    createdAt: '2026-09-16T09:40:00.000Z'
-  },
-  {
-    id: 'notif-baut-9204',
-    type: 'order_created',
-    title: 'Pedido en Revisión #ORD-BAUT-9204 (BRONCE)',
-    message: 'Mateo Gael (Bautismo Angelical). En ventana de 24h de revisión previa por parte del cliente.',
-    projectId: ORDER_MATEO_GAEL.id,
-    paymentId: 'pay-baut-9204',
-    read: true,
-    createdAt: '2026-09-15T18:00:00.000Z'
-  }
-];
+export const INITIAL_NOTIFICATIONS: AdminNotification[] = [];
