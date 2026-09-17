@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { DesignTemplate, PlanTier, Project } from '../types';
+import { compressImageFile } from '../lib/imageCompression';
 
 interface CheckoutModalProps {
   template: DesignTemplate;
@@ -62,14 +63,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const selectedPlan = plans.find(p => p.id === selectedPlanId) || plans[0];
 
-  const handleReceiptUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [compressingReceipt, setCompressingReceipt] = useState(false);
+
+  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setReceiptFile(ev.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    setCompressingReceipt(true);
+    try {
+      const compressed = await compressImageFile(file, 800, 800, 0.75);
+      setReceiptFile(compressed);
+    } catch (err) {
+      console.warn('Compression error, falling back to FileReader:', err);
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setReceiptFile(ev.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setCompressingReceipt(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -486,9 +498,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     onChange={handleReceiptUpload}
                     className="w-full text-neutral-400 text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-neutral-800 file:text-amber-300 hover:file:bg-neutral-700 cursor-pointer"
                   />
-                  {receiptFile && (
+                  {compressingReceipt && (
+                    <div className="text-amber-400 font-bold mt-1 text-[10px] flex items-center gap-1">
+                      <Clock className="w-3 h-3 animate-spin" /> Optimizando imagen de comprobante...
+                    </div>
+                  )}
+                  {receiptFile && !compressingReceipt && (
                     <div className="text-emerald-400 font-bold mt-1 text-[10px] flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Comprobante cargado correctamente
+                      <CheckCircle2 className="w-3 h-3" /> Comprobante optimizado y adjunto correctamente
                     </div>
                   )}
                 </div>

@@ -27,6 +27,7 @@ import {
 import { useStore } from '../lib/store';
 import { ambientAudio } from '../lib/audioSynth';
 import { EventSettings, Guest, Plan, DesignTemplate } from '../types';
+import { compressImageFile } from '../lib/imageCompression';
 
 interface InvitationViewProps {
   guestToken?: string;
@@ -267,16 +268,14 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
     setTimeout(() => setBlessingSent(false), 3000);
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
 
     setUploadingPhoto(true);
-    // Simulate image read & compression to WebP/JPEG dataUrl
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
+    try {
+      const dataUrl = await compressImageFile(file, 900, 900, 0.75);
       addPhoto(currentProject.id, {
         source: 'event',
         url: dataUrl,
@@ -289,8 +288,23 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
       try {
         confetti({ particleCount: 30, spread: 45 });
       } catch {}
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('Fallback file reader:', err);
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        addPhoto(currentProject.id, {
+          source: 'event',
+          url: dataUrl,
+          author: uploadAuthor || (guest ? guest.name : 'Invitado del Evento'),
+          status: 'approved',
+          watermarkEnabled: true
+        });
+        setUploadingPhoto(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const carouselImages = currentEventSettings.carouselPhotos.length > 0

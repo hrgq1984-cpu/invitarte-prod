@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { Guest, EventSettings } from '../types';
+import { compressImageFile } from '../lib/imageCompression';
 
 export const ClientDashboard: React.FC = () => {
   const { 
@@ -133,19 +134,24 @@ export const ClientDashboard: React.FC = () => {
     updateEventSettings(currentProject.id, { carouselPhotos: updated });
   };
 
-  const handlePhotoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (formData.carouselPhotos.length >= plan.maxInvitationPhotos) {
       alert(`El ${plan.name} permite un máximo de ${plan.maxInvitationPhotos} fotos.`);
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      handleAddPhotoUrl(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImageFile(file, 1000, 1000, 0.75);
+      handleAddPhotoUrl(compressed);
+    } catch (e) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        handleAddPhotoUrl(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // WhatsApp link generator for guest

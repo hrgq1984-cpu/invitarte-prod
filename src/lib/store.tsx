@@ -97,11 +97,53 @@ interface StoreContextType {
 const STORAGE_KEY = 'invitarte_v1_store';
 
 export const DEMO_TEST_PROJECT_IDS = [
+  'proj-boda-camila-lautaro',
+  'proj-15anos-valentina',
+  'proj-bautismo-mateo',
   'proj-boda-camila-lautaro-2026',
   'proj-15an-valentina-2026',
   'proj-bautismo-mateo-2026',
-  'proj-comunion-santiago-2026'
+  'proj-comunion-santiago-2026',
+  'proj-ref-comunion-001'
 ];
+
+export const isDemoProject = (p: Partial<Project> | any): boolean => {
+  if (!p) return false;
+  if (p.id && DEMO_TEST_PROJECT_IDS.includes(p.id)) return true;
+  if (p.orderNumber && (
+    p.orderNumber === 'ORD-BODA-5120' || 
+    p.orderNumber === 'ORD-15AN-7842' || 
+    p.orderNumber === 'ORD-BAUT-9204' || 
+    p.orderNumber === 'ORD-COMU-8921'
+  )) return true;
+  if (p.clientEmail && (
+    p.clientEmail === 'camila.lautaro.boda@gmail.com' || 
+    p.clientEmail === 'familia.morales.xv@gmail.com' || 
+    p.clientEmail === 'papas.de.mateo@gmail.com'
+  )) return true;
+  if (p.honoreeName && (
+    p.honoreeName === 'Camila & Lautaro' || 
+    p.honoreeName === 'Valentina Morales' || 
+    p.honoreeName === 'Mateo Gael' ||
+    p.honoreeName === 'Santiago Tomás'
+  )) return true;
+  return false;
+};
+
+export const safeSetLocalStorage = (key: string, value: string) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    console.warn(`LocalStorage quota exceeded writing ${key}, attempting cleanup...`, e);
+    try {
+      localStorage.removeItem(`${STORAGE_KEY}_photos`);
+      localStorage.removeItem(`${STORAGE_KEY}_blessings`);
+      localStorage.setItem(key, value);
+    } catch (innerErr) {
+      console.error(`Fatal localStorage write failure for ${key}:`, innerErr);
+    }
+  }
+};
 
 const getDeletedIds = (): string[] => {
   try {
@@ -179,14 +221,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const loginAdmin = (secretKey: string): boolean => {
     const raw = secretKey.trim();
-    // Clave maestra: 'Maximo1822.@', o variantes 'Maximo1822', 'maximo1822.@', 'maximo1822'
+    // Clave maestra: 'Maximo1822.@', o variantes 'Maximo1822', 'maximo1822.@', 'maximo1822', '1822'
     if (
       raw === 'Maximo1822.@' || 
       raw.toLowerCase() === 'maximo1822.@' || 
       raw.toLowerCase() === 'maximo1822' || 
-      raw === 'Maximo1822'
+      raw === 'Maximo1822' ||
+      raw === '1822'
     ) {
       setCurrentUser(ADMIN_USER);
+      try {
+        localStorage.setItem(`${STORAGE_KEY}_auth_user`, JSON.stringify(ADMIN_USER));
+      } catch (e) {}
       return true;
     }
     return false;
@@ -228,15 +274,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [projects, setProjects] = useState<Project[]>(() => {
     const deletedIds = getDeletedIds();
-    const initialAvailable = INITIAL_PROJECTS.filter(p => !deletedIds.includes(p.id));
+    const initialAvailable = INITIAL_PROJECTS.filter(p => !isDemoProject(p) && !deletedIds.includes(p.id));
     const saved = localStorage.getItem(`${STORAGE_KEY}_projects`);
     if (saved) {
       try {
         const parsed: Project[] = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          const filtered = parsed.filter(p => !deletedIds.includes(p.id));
-          const missing = initialAvailable.filter(ip => !filtered.some(p => p.id === ip.id));
-          return [...filtered, ...missing];
+          const filtered = parsed.filter(p => !isDemoProject(p) && !deletedIds.includes(p.id));
+          return filtered;
         }
       } catch (e) {
         console.warn('Error reading saved projects:', e);
@@ -324,84 +369,111 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return initialAvailable;
   });
 
-  // Sync state changes with localStorage
+  // Sync state changes with localStorage & active cleanup of demo records
   useEffect(() => {
     try {
       const savedProjects = localStorage.getItem(`${STORAGE_KEY}_projects`);
       if (savedProjects) {
         const parsed: Project[] = JSON.parse(savedProjects);
-        if (Array.isArray(parsed) && parsed.some(p => DEMO_TEST_PROJECT_IDS.includes(p.id))) {
-          const cleaned = parsed.filter(p => !DEMO_TEST_PROJECT_IDS.includes(p.id));
-          localStorage.setItem(`${STORAGE_KEY}_projects`, JSON.stringify(cleaned));
-          setProjects(cleaned);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(p => !isDemoProject(p));
+          if (cleaned.length !== parsed.length) {
+            safeSetLocalStorage(`${STORAGE_KEY}_projects`, JSON.stringify(cleaned));
+            setProjects(cleaned);
+          }
         }
       }
       const savedPayments = localStorage.getItem(`${STORAGE_KEY}_payments`);
       if (savedPayments) {
         const parsed: PaymentTransaction[] = JSON.parse(savedPayments);
-        if (Array.isArray(parsed) && parsed.some(p => DEMO_TEST_PROJECT_IDS.includes(p.projectId))) {
-          const cleaned = parsed.filter(p => !DEMO_TEST_PROJECT_IDS.includes(p.projectId));
-          localStorage.setItem(`${STORAGE_KEY}_payments`, JSON.stringify(cleaned));
-          setPayments(cleaned);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(p => 
+            !DEMO_TEST_PROJECT_IDS.includes(p.projectId) && 
+            !p.id.includes('boda-camila') && 
+            !p.id.includes('15anos-valentina') && 
+            !p.id.includes('bautismo-mateo')
+          );
+          if (cleaned.length !== parsed.length) {
+            safeSetLocalStorage(`${STORAGE_KEY}_payments`, JSON.stringify(cleaned));
+            setPayments(cleaned);
+          }
         }
       }
       const savedNotifs = localStorage.getItem(`${STORAGE_KEY}_admin_notifications`);
       if (savedNotifs) {
         const parsed: AdminNotification[] = JSON.parse(savedNotifs);
-        if (Array.isArray(parsed) && parsed.some(n => DEMO_TEST_PROJECT_IDS.includes(n.projectId))) {
-          const cleaned = parsed.filter(n => !DEMO_TEST_PROJECT_IDS.includes(n.projectId));
-          localStorage.setItem(`${STORAGE_KEY}_admin_notifications`, JSON.stringify(cleaned));
-          setAdminNotifications(cleaned);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(n => 
+            !DEMO_TEST_PROJECT_IDS.includes(n.projectId || '') && 
+            !n.title.includes('5120') && 
+            !n.title.includes('7842') && 
+            !n.title.includes('9204')
+          );
+          if (cleaned.length !== parsed.length) {
+            safeSetLocalStorage(`${STORAGE_KEY}_admin_notifications`, JSON.stringify(cleaned));
+            setAdminNotifications(cleaned);
+          }
         }
       }
     } catch (e) {}
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_plans`, JSON.stringify(plans));
+    safeSetLocalStorage(`${STORAGE_KEY}_plans`, JSON.stringify(plans));
   }, [plans]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_projects`, JSON.stringify(projects));
+    safeSetLocalStorage(`${STORAGE_KEY}_projects`, JSON.stringify(projects));
   }, [projects]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_settings`, JSON.stringify(eventSettingsMap));
+    safeSetLocalStorage(`${STORAGE_KEY}_settings`, JSON.stringify(eventSettingsMap));
   }, [eventSettingsMap]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_guests`, JSON.stringify(guestsMap));
+    safeSetLocalStorage(`${STORAGE_KEY}_guests`, JSON.stringify(guestsMap));
   }, [guestsMap]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_blessings`, JSON.stringify(blessingsMap));
+    safeSetLocalStorage(`${STORAGE_KEY}_blessings`, JSON.stringify(blessingsMap));
   }, [blessingsMap]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_photos`, JSON.stringify(photosMap));
+    safeSetLocalStorage(`${STORAGE_KEY}_photos`, JSON.stringify(photosMap));
   }, [photosMap]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_payments`, JSON.stringify(payments));
+    safeSetLocalStorage(`${STORAGE_KEY}_payments`, JSON.stringify(payments));
   }, [payments]);
 
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_admin_notifications`, JSON.stringify(adminNotifications));
+    safeSetLocalStorage(`${STORAGE_KEY}_admin_notifications`, JSON.stringify(adminNotifications));
   }, [adminNotifications]);
 
   const reloadFromStorage = () => {
     try {
       const deletedIds = getDeletedIds();
-      const initialProjectsAvailable = INITIAL_PROJECTS.filter(p => !deletedIds.includes(p.id));
+      const initialProjectsAvailable = INITIAL_PROJECTS.filter(p => !isDemoProject(p) && !deletedIds.includes(p.id));
       const savedProjects = localStorage.getItem(`${STORAGE_KEY}_projects`);
       if (savedProjects) {
         const parsed = JSON.parse(savedProjects);
         if (Array.isArray(parsed)) {
-          const filtered = parsed.filter((p: any) => !deletedIds.includes(p.id));
-          const missing = initialProjectsAvailable.filter(ip => !filtered.some(p => p.id === ip.id));
-          setProjects([...filtered, ...missing]);
+          const filtered = parsed.filter((p: any) => !isDemoProject(p) && !deletedIds.includes(p.id));
+          setProjects(prev => {
+            // Keep existing non-demo projects from memory that are active
+            const map = new Map<string, Project>();
+            for (const item of filtered) {
+              map.set(item.id, item);
+            }
+            for (const item of prev) {
+              if (!isDemoProject(item) && !deletedIds.includes(item.id) && !map.has(item.id)) {
+                map.set(item.id, item);
+              }
+            }
+            return Array.from(map.values());
+          });
         }
-      } else {
+      } else if (initialProjectsAvailable.length > 0) {
         setProjects(initialProjectsAvailable);
       }
 
@@ -411,10 +483,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const parsed = JSON.parse(savedPayments);
         if (Array.isArray(parsed)) {
           const filtered = parsed.filter((p: any) => !deletedIds.includes(p.projectId));
-          const missing = initialPaymentsAvailable.filter(ip => !filtered.some(p => p.id === ip.id));
-          setPayments([...filtered, ...missing]);
+          setPayments(prev => {
+            const map = new Map<string, PaymentTransaction>();
+            for (const item of filtered) map.set(item.id, item);
+            for (const item of prev) {
+              if (!deletedIds.includes(item.projectId) && !map.has(item.id)) map.set(item.id, item);
+            }
+            return Array.from(map.values());
+          });
         }
-      } else {
+      } else if (initialPaymentsAvailable.length > 0) {
         setPayments(initialPaymentsAvailable);
       }
 
@@ -433,10 +511,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const parsed = JSON.parse(savedNotifs);
         if (Array.isArray(parsed)) {
           const filtered = parsed.filter((n: any) => !deletedIds.includes(n.projectId));
-          const missing = initialNotifsAvailable.filter(inNotif => !filtered.some(n => n.id === inNotif.id));
-          setAdminNotifications([...filtered, ...missing]);
+          setAdminNotifications(prev => {
+            const map = new Map<string, AdminNotification>();
+            for (const item of filtered) map.set(item.id, item);
+            for (const item of prev) {
+              if (!deletedIds.includes(item.projectId || '') && !map.has(item.id)) map.set(item.id, item);
+            }
+            return Array.from(map.values());
+          });
         }
-      } else {
+      } else if (initialNotifsAvailable.length > 0) {
         setAdminNotifications(initialNotifsAvailable);
       }
     } catch (e) {
@@ -799,19 +883,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const savedProjects = localStorage.getItem(`${STORAGE_KEY}_projects`);
       const existingProjects = savedProjects ? JSON.parse(savedProjects) : [];
-      localStorage.setItem(`${STORAGE_KEY}_projects`, JSON.stringify([newProject, ...existingProjects.filter((p: any) => p.id !== projectId)]));
+      safeSetLocalStorage(`${STORAGE_KEY}_projects`, JSON.stringify([newProject, ...existingProjects.filter((p: any) => p.id !== projectId)]));
 
       const savedPayments = localStorage.getItem(`${STORAGE_KEY}_payments`);
       const existingPayments = savedPayments ? JSON.parse(savedPayments) : [];
-      localStorage.setItem(`${STORAGE_KEY}_payments`, JSON.stringify([newPayment, ...existingPayments.filter((p: any) => p.id !== paymentId)]));
+      safeSetLocalStorage(`${STORAGE_KEY}_payments`, JSON.stringify([newPayment, ...existingPayments.filter((p: any) => p.id !== paymentId)]));
 
       const savedSettings = localStorage.getItem(`${STORAGE_KEY}_settings`);
       const existingSettings = savedSettings ? JSON.parse(savedSettings) : {};
-      localStorage.setItem(`${STORAGE_KEY}_settings`, JSON.stringify({ ...existingSettings, [projectId]: newSettings }));
+      safeSetLocalStorage(`${STORAGE_KEY}_settings`, JSON.stringify({ ...existingSettings, [projectId]: newSettings }));
 
       const savedNotifs = localStorage.getItem(`${STORAGE_KEY}_admin_notifications`);
       const existingNotifs = savedNotifs ? JSON.parse(savedNotifs) : [];
-      localStorage.setItem(`${STORAGE_KEY}_admin_notifications`, JSON.stringify([notif, ...existingNotifs]));
+      safeSetLocalStorage(`${STORAGE_KEY}_admin_notifications`, JSON.stringify([notif, ...existingNotifs]));
     } catch (e) {
       console.warn('LocalStorage write warning:', e);
     }
