@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   CheckCircle, 
   Clock, 
@@ -21,13 +21,23 @@ import {
   HardDrive,
   AlertTriangle,
   Lock,
-  ArrowRight
+  ArrowRight,
+  Eye,
+  Smartphone,
+  Maximize2,
+  X
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { Guest, EventSettings } from '../types';
 import { compressImageFile } from '../lib/imageCompression';
+import { InvitationView } from './InvitationView';
 
-export const ClientDashboard: React.FC = () => {
+export interface ClientDashboardProps {
+  onNavigate?: (view: 'catalog' | 'demo' | 'client' | 'admin') => void;
+  onOpenTvMode?: () => void;
+}
+
+export const ClientDashboard: React.FC<ClientDashboardProps> = ({ onNavigate, onOpenTvMode }) => {
   const { 
     currentProject, 
     currentEventSettings, 
@@ -69,9 +79,19 @@ export const ClientDashboard: React.FC = () => {
   const canSendInvitations = currentProject.status === 'preview_available' || currentProject.status === 'published';
   const [showLockedSendAlert, setShowLockedSendAlert] = useState(false);
 
+  // Live simulator modal state
+  const [showLivePreviewModal, setShowLivePreviewModal] = useState(false);
+
   // Editable Event Settings State
   const [formData, setFormData] = useState<EventSettings>(currentEventSettings);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Keep formData in sync when currentEventSettings updates in store/Firestore
+  useEffect(() => {
+    if (currentEventSettings && currentEventSettings.projectId === currentProject.id) {
+      setFormData(currentEventSettings);
+    }
+  }, [currentEventSettings, currentProject.id]);
 
   // Photo upload ref
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -82,11 +102,27 @@ export const ClientDashboard: React.FC = () => {
     setTimeout(() => setCopiedId(null), 2500);
   };
 
-  const handleSaveSettings = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveSettings = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     updateEventSettings(currentProject.id, formData);
     setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2500);
+    setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const handleOpenLivePreview = () => {
+    // Save current settings immediately so preview renders latest edits
+    updateEventSettings(currentProject.id, formData);
+    setShowLivePreviewModal(true);
+  };
+
+  const handleOpenFullscreenDemo = () => {
+    // Save current settings immediately and navigate to full screen simulator
+    updateEventSettings(currentProject.id, formData);
+    if (onNavigate) {
+      onNavigate('demo');
+    } else {
+      window.location.hash = 'demo';
+    }
   };
 
   const handleAddGuestSubmit = (e: React.FormEvent) => {
@@ -233,14 +269,27 @@ export const ClientDashboard: React.FC = () => {
             </button>
           )}
 
-          <a
-            href={`#demo`}
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 flex items-center gap-1.5"
+          <button
+            id="btn-client-live-preview"
+            type="button"
+            onClick={handleOpenLivePreview}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 font-bold flex items-center gap-1.5 shadow-md shadow-amber-950/40 transition-all active:scale-95"
+            title="Abrir simulador con los cambios actuales"
           >
-            <ExternalLink className="w-4 h-4 text-amber-400" />
-            Ver Preview Celular
-          </a>
+            <Eye className="w-4 h-4" />
+            <span>Ver Vista Previa en Vivo</span>
+          </button>
+
+          <button
+            id="btn-client-fullscreen-preview"
+            type="button"
+            onClick={handleOpenFullscreenDemo}
+            className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 flex items-center gap-1.5 font-semibold transition-colors"
+            title="Ver la invitación interactiva en pantalla completa"
+          >
+            <Smartphone className="w-4 h-4 text-amber-400" />
+            <span>Ver en Celular</span>
+          </button>
         </div>
       </div>
 
@@ -473,13 +522,25 @@ export const ClientDashboard: React.FC = () => {
               <p className="text-neutral-400">Actualiza las fechas, lugares, vestimenta y datos bancarios.</p>
             </div>
 
-            <button
-              type="submit"
-              className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold flex items-center gap-2 shadow"
-            >
-              <Check className="w-4 h-4" />
-              Guardar Cambios
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleOpenLivePreview}
+                className="px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold flex items-center gap-1.5 transition-all"
+                title="Ver cómo queda la invitación"
+              >
+                <Eye className="w-4 h-4 text-amber-400" />
+                <span>Ver Vista Previa</span>
+              </button>
+
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold flex items-center gap-2 shadow"
+              >
+                <Check className="w-4 h-4" />
+                Guardar Cambios
+              </button>
+            </div>
           </div>
 
           {saveSuccess && (
@@ -634,6 +695,15 @@ export const ClientDashboard: React.FC = () => {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleOpenLivePreview}
+                className="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold flex items-center gap-1.5 transition-all text-xs"
+                title="Ver cómo queda la invitación"
+              >
+                <Eye className="w-4 h-4 text-amber-400" />
+                <span>Ver Vista Previa</span>
+              </button>
               <button
                 type="submit"
                 className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold flex items-center gap-1.5 transition-colors shadow"
@@ -1044,6 +1114,73 @@ export const ClientDashboard: React.FC = () => {
                 Procesar e Importar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. MODAL DE VISTA PREVIA EN VIVO PARA EL CLIENTE */}
+      {showLivePreviewModal && (
+        <div className="fixed inset-0 z-[100] bg-neutral-950/90 backdrop-blur-md flex flex-col items-center justify-center p-2 sm:p-4 animate-in fade-in">
+          {/* Header Controls */}
+          <div className="w-full max-w-sm mb-3 flex items-center justify-between bg-neutral-900/95 border border-neutral-800 p-3 rounded-2xl shadow-2xl">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
+                <Eye className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="text-left">
+                <span className="text-white font-bold text-xs block truncate max-w-[180px]">
+                  {formData.honoreeName || 'Vista Previa'}
+                </span>
+                <span className="text-neutral-400 text-[10px] block">Tus cambios se ven reflejados aquí</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setShowLivePreviewModal(false);
+                  handleOpenFullscreenDemo();
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold flex items-center gap-1.5 border border-neutral-700 transition-colors"
+                title="Abrir a pantalla completa"
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Completa</span>
+              </button>
+
+              <button
+                onClick={() => setShowLivePreviewModal(false)}
+                className="p-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white transition-colors"
+                title="Cerrar vista previa"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Smartphone Simulator */}
+          <div className="relative w-full max-w-[375px] aspect-[9/18.5] max-h-[82vh] bg-neutral-900 rounded-[44px] p-3 shadow-2xl border-[5px] border-neutral-800 ring-1 ring-white/10 flex flex-col">
+            {/* Dynamic Island / Notch */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 w-24 h-3.5 bg-neutral-950 rounded-full z-30 flex items-center justify-center pointer-events-none">
+              <div className="w-2 h-2 rounded-full bg-neutral-900 border border-neutral-800 mr-2" />
+              <div className="w-1 h-1 rounded-full bg-blue-950" />
+            </div>
+
+            {/* Screen Display Area */}
+            <div 
+              className="w-full h-full rounded-[34px] overflow-y-auto overflow-x-hidden relative bg-[#fdfbf7] shadow-inner"
+              style={{ overscrollBehavior: 'contain' }}
+            >
+              <InvitationView 
+                key={`client-preview-${formData.title}-${formData.honoreeName}-${formData.date}-${formData.time}`}
+                isMockupFrame={true}
+                customSettings={formData}
+                onOpenTvMode={onOpenTvMode}
+              />
+            </div>
+
+            {/* Bottom Home Indicator */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-28 h-1 bg-neutral-500/40 rounded-full pointer-events-none" />
           </div>
         </div>
       )}

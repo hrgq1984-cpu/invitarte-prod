@@ -801,16 +801,50 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setEventSettingsMap(prev => {
       const updated = {
         ...(prev[projectId] || REFERENCE_EVENT_SETTINGS),
-        ...settings
+        ...settings,
+        projectId
       };
-      if (db) {
-        setDoc(doc(db, 'event_settings', projectId), cleanForFirestore(updated), { merge: true }).catch(() => {});
-      }
-      return {
+      const nextMap = {
         ...prev,
         [projectId]: updated
       };
+      safeSetLocalStorage(`${STORAGE_KEY}_settings`, JSON.stringify(nextMap));
+      if (db) {
+        setDoc(doc(db, 'event_settings', projectId), cleanForFirestore(updated), { merge: true }).catch((err) => {
+          console.warn('Firestore setDoc event_settings error:', err);
+        });
+      }
+      return nextMap;
     });
+
+    // Also synchronize projects if honoreeName, eventDate or title changed
+    if (settings.honoreeName || settings.date) {
+      setProjects(prev => {
+        const next = prev.map(p => {
+          if (p.id === projectId) {
+            return {
+              ...p,
+              ...(settings.honoreeName ? { honoreeName: settings.honoreeName } : {}),
+              ...(settings.date ? { eventDate: settings.date } : {}),
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return p;
+        });
+        safeSetLocalStorage(`${STORAGE_KEY}_projects`, JSON.stringify(next));
+        if (db) {
+          const target = next.find(p => p.id === projectId);
+          if (target) {
+            setDoc(doc(db, 'projects', projectId), cleanForFirestore(target), { merge: true }).catch(() => {});
+          }
+        }
+        return next;
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('invitarte_store_updated'));
+    }
   };
 
 
@@ -1653,18 +1687,92 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const previewTemplate = (template: DesignTemplate) => {
-    // 1. Update active project metadata
-    setProjects(prev => prev.map(p => {
-      if (p.id === selectedProjectId) {
-        return {
-          ...p,
-          templateId: template.id,
-          eventType: template.eventType,
-          planId: template.requiredPlan
-        };
-      }
-      return p;
-    }));
+    const isClientOrder = currentProject && !isDemoProject(currentProject);
+    const existing = eventSettingsMap[selectedProjectId];
+
+    // 1. If this is a client project with existing settings, PRESERVE all custom content!
+    if (isClientOrder && existing) {
+      const preservedSettings: EventSettings = {
+        ...existing,
+        projectId: selectedProjectId,
+        title: existing.title || template.name,
+        // PRESERVE CUSTOM USER DATA:
+        honoreeName: existing.honoreeName || template.sampleHonoree,
+        date: existing.date || template.sampleDate,
+        time: existing.time || '18:00',
+        ceremonyTime: existing.ceremonyTime || '18:00',
+        partyTime: existing.partyTime || '20:00',
+        locationName: existing.locationName || template.sampleLocation,
+        address: existing.address || template.sampleLocation,
+        mapsUrl: existing.mapsUrl || `https://maps.google.com/?q=${encodeURIComponent(template.sampleLocation)}`,
+        initialPhrase: existing.initialPhrase || template.samplePhrase,
+        dressCode: existing.dressCode || 'Elegante',
+        dressCodeNotes: existing.dressCodeNotes,
+        bankAlias: existing.bankAlias,
+        bankCvu: existing.bankCvu,
+        bankHolder: existing.bankHolder,
+        bankNotes: existing.bankNotes,
+        selectedMusicUrl: existing.selectedMusicUrl || 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=piano-moment-9835.mp3',
+        musicTitle: existing.musicTitle || `Melodía de ${template.name}`,
+        // Update visual design tokens to match the selected template:
+        primaryColor: template.palette.primary,
+        secondaryColor: template.palette.secondary,
+        accentColor: template.palette.accent,
+        fontFamily: template.fontFamily,
+        envelopeColor: template.envelopeColor,
+        waxSealText: template.waxSealSymbol,
+        coverPhotoUrl: existing.coverPhotoUrl || template.previewImage,
+        carouselPhotos: (existing.carouselPhotos && existing.carouselPhotos.length > 0)
+          ? existing.carouselPhotos
+          : [template.previewImage],
+        schedule: (existing.schedule && existing.schedule.length > 0)
+          ? existing.schedule
+          : [
+            { time: '18:00 hs', title: 'Recepción', description: 'Bienvenida a los invitados.' },
+            { time: '20:00 hs', title: 'Celebración', description: 'Festejo y brindis especial.' }
+          ]
+      };
+
+      setEventSettingsMap(prev => {
+        const next = { ...prev, [selectedProjectId]: preservedSettings };
+        safeSetLocalStorage(`${STORAGE_KEY}_settings`, JSON.stringify(next));
+        if (db) {
+          setDoc(doc(db, 'event_settings', selectedProjectId), cleanForFirestore(preservedSettings), { merge: true }).catch(() => {});
+        }
+        return next;
+      });
+
+      setProjects(prev => {
+        const next = prev.map(p => p.id === selectedProjectId ? { ...p, templateId: template.id } : p);
+        safeSetLocalStorage(`${STORAGE_KEY}_projects`, JSON.stringify(next));
+        if (db) {
+          const target = next.find(p => p.id === selectedProjectId);
+          if (target) {
+            setDoc(doc(db, 'projects', selectedProjectId), cleanForFirestore(target), { merge: true }).catch(() => {});
+          }
+        }
+        return next;
+      });
+      return;
+    }
+
+    // 2. Otherwise (catalog preview or demo project):
+    // Update active project metadata
+    setProjects(prev => {
+      const next = prev.map(p => {
+        if (p.id === selectedProjectId) {
+          return {
+            ...p,
+            templateId: template.id,
+            eventType: template.eventType,
+            planId: template.requiredPlan
+          };
+        }
+        return p;
+      });
+      safeSetLocalStorage(`${STORAGE_KEY}_projects`, JSON.stringify(next));
+      return next;
+    });
 
     // 2. Generate rich context for this template
     const eventTypeLabels: Record<string, string> = {
@@ -1808,10 +1916,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ]
     };
 
-    setEventSettingsMap(prev => ({
-      ...prev,
-      [selectedProjectId]: newSettings
-    }));
+    setEventSettingsMap(prev => {
+      const next = {
+        ...prev,
+        [selectedProjectId]: newSettings
+      };
+      safeSetLocalStorage(`${STORAGE_KEY}_settings`, JSON.stringify(next));
+      return next;
+    });
   };
 
   const resetAllData = () => {

@@ -34,13 +34,15 @@ interface InvitationViewProps {
   isMockupFrame?: boolean;
   onOpenTvMode?: () => void;
   activeTemplate?: DesignTemplate;
+  customSettings?: EventSettings;
 }
 
 export const InvitationView: React.FC<InvitationViewProps> = ({ 
   guestToken, 
   isMockupFrame = false,
   onOpenTvMode,
-  activeTemplate
+  activeTemplate,
+  customSettings
 }) => {
   const { 
     currentProject, 
@@ -53,6 +55,9 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
     addPhoto, 
     submitRsvp 
   } = useStore();
+
+  // Resolved active event settings (customSettings override for real-time live preview)
+  const settings = customSettings || currentEventSettings;
 
   // Resolve active plan dynamically based on activeTemplate if provided, or currentProject
   const plan = activeTemplate
@@ -122,10 +127,10 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
   // Countdown timer logic
   useEffect(() => {
     const calculateTime = () => {
-      const eventDateStr = currentEventSettings.date;
+      const eventDateStr = settings.date;
       const eventTimeStr = countdownTarget === 'party' 
-        ? (currentEventSettings.partyTime || '13:00') 
-        : (currentEventSettings.ceremonyTime || currentEventSettings.time || '11:00');
+        ? (settings.partyTime || '13:00') 
+        : (settings.ceremonyTime || settings.time || '11:00');
       
       const targetDate = new Date(`${eventDateStr}T${eventTimeStr}:00`);
       const now = new Date();
@@ -147,7 +152,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
     calculateTime();
     const interval = setInterval(calculateTime, 1000);
     return () => clearInterval(interval);
-  }, [currentEventSettings.date, currentEventSettings.time, currentEventSettings.ceremonyTime, currentEventSettings.partyTime, countdownTarget]);
+  }, [settings.date, settings.time, settings.ceremonyTime, settings.partyTime, countdownTarget]);
 
   // Open Envelope Animation with Audio Unlock
   const handleOpenEnvelope = () => {
@@ -168,7 +173,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
 
     // Start background stream or synth melody after gesture
     setTimeout(() => {
-      ambientAudio.playStream(currentEventSettings.selectedMusicUrl);
+      ambientAudio.playStream(settings.selectedMusicUrl);
       setIsPlayingAudio(true);
       setEnvelopeOpened(true);
       setIsOpeningEnvelope(false);
@@ -180,7 +185,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
       ambientAudio.pause();
       setIsPlayingAudio(false);
     } else {
-      ambientAudio.playStream(currentEventSettings.selectedMusicUrl);
+      ambientAudio.playStream(settings.selectedMusicUrl);
       setIsPlayingAudio(true);
     }
   };
@@ -197,15 +202,15 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
   };
 
   const handleDownloadCalendarIcs = () => {
-    const start = `${currentEventSettings.date.replace(/-/g, '')}T${(currentEventSettings.ceremonyTime || '11:00').replace(':', '')}00`;
+    const start = `${settings.date.replace(/-/g, '')}T${(settings.ceremonyTime || '11:00').replace(':', '')}00`;
     const icsContent = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
       'PRODID:-//TuInvitacionDigital//Digital Invitation//ES',
       'BEGIN:VEVENT',
-      `SUMMARY:${currentEventSettings.title} - ${currentEventSettings.honoreeName}`,
-      `DESCRIPTION:${currentEventSettings.initialPhrase}`,
-      `LOCATION:${currentEventSettings.locationName}, ${currentEventSettings.address}`,
+      `SUMMARY:${settings.title} - ${settings.honoreeName}`,
+      `DESCRIPTION:${settings.initialPhrase}`,
+      `LOCATION:${settings.locationName}, ${settings.address}`,
       `DTSTART:${start}`,
       `DTEND:${start}`,
       'END:VEVENT',
@@ -216,7 +221,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `evento-${currentEventSettings.honoreeName.toLowerCase().replace(/\s+/g, '-')}.ics`);
+    link.setAttribute('download', `evento-${settings.honoreeName.toLowerCase().replace(/\s+/g, '-')}.ics`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -250,7 +255,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
   const getWhatsAppRsvpUrl = () => {
     const adminPhone = '5493835438603';
     const text = encodeURIComponent(
-      `¡Hola! Confirmo mi asistencia para ${currentEventSettings.title} de ${currentEventSettings.honoreeName}:\n` +
+      `¡Hola! Confirmo mi asistencia para ${settings.title} de ${settings.honoreeName}:\n` +
       `👤 Invitado: ${guest ? guest.name : 'Invitado'}\n` +
       `✅ Estado: ${rsvpAttendance === 'confirmed' ? 'ASISTIRÉ' : 'NO PODRÉ ASISTIR'}\n` +
       `👥 Adultos: ${adultsCount} | Menores: ${childrenCount}\n` +
@@ -307,9 +312,9 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
     }
   };
 
-  const carouselImages = currentEventSettings.carouselPhotos.length > 0
-    ? currentEventSettings.carouselPhotos
-    : [currentEventSettings.coverPhotoUrl];
+  const carouselImages = settings.carouselPhotos.length > 0
+    ? settings.carouselPhotos
+    : [settings.coverPhotoUrl];
 
   // 1. STANDALONE SOBRE DE APERTURA (Plan Oro: perfectly centered in phone viewport until opened)
   if (!envelopeOpened && isPlanOro) {
@@ -326,7 +331,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
         <div 
           className="absolute inset-0 opacity-25 pointer-events-none"
           style={{
-            background: `radial-gradient(circle at 50% 40%, ${currentEventSettings.envelopeColor || '#c59b27'} 0%, transparent 70%)`
+            background: `radial-gradient(circle at 50% 40%, ${settings.envelopeColor || '#c59b27'} 0%, transparent 70%)`
           }}
         />
 
@@ -337,7 +342,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
               isOpeningEnvelope ? 'scale-105 -translate-y-4 opacity-90' : 'hover:scale-[1.02]'
             }`}
             style={{
-              backgroundColor: currentEventSettings.envelopeColor || '#c59b27',
+              backgroundColor: settings.envelopeColor || '#c59b27',
               backgroundImage: 'radial-gradient(circle at 50% 20%, rgba(255,255,255,0.25), transparent 70%)'
             }}
           >
@@ -350,10 +355,10 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             </div>
 
             <div className="text-white text-base font-cinzel font-bold tracking-wider mb-1 line-clamp-1">
-              {currentEventSettings.title}
+              {settings.title}
             </div>
             <div className="text-amber-100 text-sm font-serif-luxury italic mb-4 line-clamp-1">
-              {currentEventSettings.honoreeName}
+              {settings.honoreeName}
             </div>
 
             {/* Wax Seal Button (Click to open & unlock music) */}
@@ -367,7 +372,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
               title="Toca para abrir la invitación y comenzar la música"
             >
               <div className="w-12 h-12 rounded-full border border-yellow-300/40 flex items-center justify-center font-cinzel font-bold text-lg shadow-inner">
-                {currentEventSettings.waxSealText || 'ST'}
+                {settings.waxSealText || 'ST'}
               </div>
             </button>
           </div>
@@ -405,7 +410,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
     <div 
       className="relative min-h-screen text-neutral-800 transition-colors overflow-x-hidden"
       style={{ 
-        backgroundColor: currentEventSettings.secondaryColor || '#fdfbf7',
+        backgroundColor: settings.secondaryColor || '#fdfbf7',
         color: '#2d241e'
       }}
     >
@@ -421,7 +426,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
               <Music className={`w-3.5 h-3.5 ${isPlayingAudio ? 'animate-bounce text-amber-600' : ''}`} />
             </button>
             <div className="truncate text-[11px] font-medium text-amber-950">
-              {currentEventSettings.musicTitle || 'Música de Fondo'}
+              {settings.musicTitle || 'Música de Fondo'}
             </div>
           </div>
 
@@ -471,21 +476,21 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
 
           <div className="space-y-1">
             <p className="text-xs uppercase tracking-widest text-amber-800 font-cinzel font-semibold">
-              {currentEventSettings.title}
+              {settings.title}
             </p>
             <h1 className="text-3xl sm:text-4xl font-serif-luxury font-bold text-neutral-900 leading-tight">
-              {currentEventSettings.honoreeName}
+              {settings.honoreeName}
             </h1>
             <p className="text-sm italic text-neutral-600 font-serif-luxury max-w-xs mx-auto">
-              "{currentEventSettings.initialPhrase}"
+              "{settings.initialPhrase}"
             </p>
           </div>
 
           {/* Cover Photo */}
           <div className="relative rounded-2xl overflow-hidden shadow-xl border-4 border-white aspect-[3/4] max-w-xs mx-auto">
             <img 
-              src={currentEventSettings.coverPhotoUrl} 
-              alt={currentEventSettings.honoreeName}
+              src={settings.coverPhotoUrl} 
+              alt={settings.honoreeName}
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
@@ -575,7 +580,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
               <Calendar className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
               <div>
                 <div className="font-semibold text-neutral-900">Fecha</div>
-                <div className="text-neutral-600">{currentEventSettings.date}</div>
+                <div className="text-neutral-600">{settings.date}</div>
               </div>
             </div>
 
@@ -584,7 +589,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
               <div>
                 <div className="font-semibold text-neutral-900">Horarios</div>
                 <div className="text-neutral-600">
-                  Ceremonia: {currentEventSettings.ceremonyTime || '11:00'} hs | Fiesta: {currentEventSettings.partyTime || '13:00'} hs
+                  Ceremonia: {settings.ceremonyTime || '11:00'} hs | Fiesta: {settings.partyTime || '13:00'} hs
                 </div>
               </div>
             </div>
@@ -592,8 +597,8 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             <div className="flex items-start gap-3 bg-neutral-50 p-3 rounded-xl">
               <MapPin className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
               <div>
-                <div className="font-semibold text-neutral-900">{currentEventSettings.locationName}</div>
-                <div className="text-neutral-600">{currentEventSettings.address}</div>
+                <div className="font-semibold text-neutral-900">{settings.locationName}</div>
+                <div className="text-neutral-600">{settings.address}</div>
               </div>
             </div>
           </div>
@@ -601,7 +606,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
           {/* Location Actions */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 font-montserrat text-xs">
             <a
-              href={currentEventSettings.mapsUrl}
+              href={settings.mapsUrl}
               target="_blank"
               rel="noreferrer"
               className="px-3 py-2 rounded-xl bg-amber-50 text-amber-900 border border-amber-200 font-semibold flex items-center justify-center gap-1.5 hover:bg-amber-100 transition-colors"
@@ -611,7 +616,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             </a>
 
             <button
-              onClick={() => handleCopy(currentEventSettings.address, 'Dirección')}
+              onClick={() => handleCopy(settings.address, 'Dirección')}
               className="px-3 py-2 rounded-xl bg-neutral-50 text-neutral-800 border border-neutral-200 font-semibold flex items-center justify-center gap-1.5 hover:bg-neutral-100 transition-colors"
             >
               <Copy className="w-3.5 h-3.5" />
@@ -629,7 +634,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
         </section>
 
         {/* 4. ITINERARIO DEL EVENTO */}
-        {currentEventSettings.schedule && currentEventSettings.schedule.length > 0 && (
+        {settings.schedule && settings.schedule.length > 0 && (
           <section className="bg-white/80 backdrop-blur-sm border border-amber-200/80 rounded-2xl p-5 shadow-sm space-y-4">
             <div className="text-center space-y-1">
               <h2 className="text-lg font-cinzel font-bold text-neutral-900">Itinerario del Día</h2>
@@ -637,7 +642,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             </div>
 
             <div className="relative pl-6 space-y-5 border-l-2 border-amber-300 font-sans-clean text-xs">
-              {currentEventSettings.schedule.map((item, idx) => (
+              {settings.schedule.map((item, idx) => (
                 <div key={idx} className="relative group">
                   {/* Dot */}
                   <div className="absolute -left-[31px] top-0.5 w-3.5 h-3.5 rounded-full bg-amber-500 border-2 border-white shadow" />
@@ -655,11 +660,11 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
           <Shirt className="w-6 h-6 text-amber-700 mx-auto" />
           <h2 className="text-lg font-cinzel font-bold text-neutral-900">Código de Vestimenta</h2>
           <p className="text-amber-900 font-bold text-sm">
-            {currentEventSettings.dressCode || 'Elegante'}
+            {settings.dressCode || 'Elegante'}
           </p>
-          {currentEventSettings.dressCodeNotes && (
+          {settings.dressCodeNotes && (
             <p className="text-xs text-neutral-600 font-sans-clean max-w-xs mx-auto">
-              {currentEventSettings.dressCodeNotes}
+              {settings.dressCodeNotes}
             </p>
           )}
         </section>
@@ -1016,16 +1021,16 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             </div>
 
             <p className="text-neutral-600 text-xs italic font-serif-luxury">
-              "{currentEventSettings.bankNotes || 'Tu presencia es nuestro mayor regalo. Si deseas agasajarnos con un aporte, te dejamos nuestros datos bancarios:'}"
+              "{settings.bankNotes || 'Tu presencia es nuestro mayor regalo. Si deseas agasajarnos con un aporte, te dejamos nuestros datos bancarios:'}"
             </p>
 
             <div className="space-y-2.5 bg-amber-50/70 p-3.5 rounded-xl border border-amber-200/80">
               <div>
                 <div className="text-[10px] text-amber-800 uppercase font-bold">Alias</div>
                 <div className="flex items-center justify-between font-mono font-bold text-neutral-900 text-sm">
-                  <span>{currentEventSettings.bankAlias || 'MI.EVENTO.2026'}</span>
+                  <span>{settings.bankAlias || 'MI.EVENTO.2026'}</span>
                   <button
-                    onClick={() => handleCopy(currentEventSettings.bankAlias || 'MI.EVENTO.2026', 'alias')}
+                    onClick={() => handleCopy(settings.bankAlias || 'MI.EVENTO.2026', 'alias')}
                     className="p-1 text-amber-800 hover:text-amber-950"
                     title="Copiar Alias"
                   >
@@ -1038,9 +1043,9 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
               <div>
                 <div className="text-[10px] text-amber-800 uppercase font-bold">CVU</div>
                 <div className="flex items-center justify-between font-mono text-neutral-900 text-xs truncate">
-                  <span className="truncate">{currentEventSettings.bankCvu || '0000003100084592019842'}</span>
+                  <span className="truncate">{settings.bankCvu || '0000003100084592019842'}</span>
                   <button
-                    onClick={() => handleCopy(currentEventSettings.bankCvu || '0000003100084592019842', 'cvu')}
+                    onClick={() => handleCopy(settings.bankCvu || '0000003100084592019842', 'cvu')}
                     className="p-1 text-amber-800 hover:text-amber-950 flex-shrink-0"
                     title="Copiar CVU"
                   >
@@ -1050,10 +1055,10 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
                 {copiedText === 'cvu' && <span className="text-[10px] text-emerald-700">¡CVU copiado!</span>}
               </div>
 
-              {currentEventSettings.bankHolder && (
+              {settings.bankHolder && (
                 <div>
                   <div className="text-[10px] text-amber-800 uppercase font-bold">Titular</div>
-                  <div className="text-neutral-800 font-semibold">{currentEventSettings.bankHolder}</div>
+                  <div className="text-neutral-800 font-semibold">{settings.bankHolder}</div>
                 </div>
               )}
             </div>

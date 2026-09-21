@@ -164,12 +164,16 @@ function AppContent() {
             onSelectTemplateForOrder={handleOpenCheckout}
             onOpenTvMode={() => setShowTvMode(true)}
             onTemplateChange={(tmplId) => setDemoTemplateId(tmplId)}
+            onNavigate={handleNavigate}
           />
         )}
 
         {currentView === 'client' && (
           currentUser.role === 'client' || currentUser.role === 'admin' ? (
-            <ClientDashboard />
+            <ClientDashboard 
+              onNavigate={handleNavigate}
+              onOpenTvMode={() => setShowTvMode(true)}
+            />
           ) : (
             <ClientLoginGate
               onSuccess={() => {

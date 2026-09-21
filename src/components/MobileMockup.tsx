@@ -14,10 +14,11 @@ import {
   Info,
   Check,
   ChevronDown,
-  Layers
+  Layers,
+  Settings
 } from 'lucide-react';
 import { InvitationView } from './InvitationView';
-import { useStore } from '../lib/store';
+import { useStore, isDemoProject } from '../lib/store';
 import { DesignTemplate, EventType, PlanTier } from '../types';
 
 interface MobileMockupProps {
@@ -26,6 +27,7 @@ interface MobileMockupProps {
   onBackToCatalog?: () => void;
   onSelectTemplateForOrder?: (template: DesignTemplate, planId: PlanTier) => void;
   onTemplateChange?: (templateId: string) => void;
+  onNavigate?: (view: 'catalog' | 'demo' | 'client' | 'admin') => void;
 }
 
 const CATEGORY_TABS: { id: 'todos' | EventType; label: string }[] = [
@@ -44,13 +46,17 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
   onOpenTvMode, 
   onBackToCatalog,
   onSelectTemplateForOrder,
-  onTemplateChange
+  onTemplateChange,
+  onNavigate
 }) => {
-  const { currentProject, templates, plans, previewTemplate } = useStore();
+  const { currentProject, currentEventSettings, currentUser, templates, plans, previewTemplate } = useStore();
   const [fullscreen, setFullscreen] = useState(false);
   const [showPlanDetails, setShowPlanDetails] = useState(false);
   const [guestToken, setGuestToken] = useState('fam-gomez-pereyra');
   const [selectedCategory, setSelectedCategory] = useState<'todos' | EventType>('todos');
+
+  // Check if viewing as an authenticated client with an active customized project
+  const isClientView = currentUser.role === 'client' && currentProject && !isDemoProject(currentProject);
 
   // Dynamic selected template state
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(
@@ -63,11 +69,13 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
       setSelectedTemplateId(initialTemplateId);
       const tmpl = templates.find(t => t.id === initialTemplateId);
       if (tmpl) {
-        previewTemplate(tmpl);
+        if (!isClientView) {
+          previewTemplate(tmpl);
+        }
         setSelectedCategory(tmpl.eventType);
       }
     }
-  }, [initialTemplateId]);
+  }, [initialTemplateId, isClientView]);
 
   // Current template and plan resolved dynamically from selectedTemplateId
   const currentTemplate = templates.find(t => t.id === selectedTemplateId) || templates[0];
@@ -91,7 +99,9 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
 
   const handleSelectTemplate = (tmpl: DesignTemplate) => {
     setSelectedTemplateId(tmpl.id);
-    previewTemplate(tmpl);
+    if (!isClientView) {
+      previewTemplate(tmpl);
+    }
     if (onTemplateChange) {
       onTemplateChange(tmpl.id);
     }
@@ -118,7 +128,69 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
   return (
     <div className="py-4 sm:py-6 px-3 sm:px-6 max-w-7xl mx-auto flex flex-col items-center">
       
-      {/* 1. TOP PROMINENT NAVIGATION & CONTROLS WITH PLAN CLARIFICATION */}
+      {/* 1. TOP PROMINENT NAVIGATION & CONTROLS */}
+      {isClientView ? (
+        <div className="w-full max-w-5xl mb-4 bg-gradient-to-r from-neutral-900 via-neutral-900 to-amber-950/40 p-4 rounded-2xl border border-amber-500/40 shadow-xl flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              id="btn-back-to-client-panel"
+              onClick={() => {
+                if (onNavigate) {
+                  onNavigate('client');
+                } else {
+                  window.location.hash = 'cliente';
+                }
+              }}
+              className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold flex items-center gap-2 text-xs shadow transition-all active:scale-95"
+              title="Regresar a editar datos e invitados"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Volver a Mi Panel</span>
+            </button>
+
+            <div>
+              <div className="text-white font-bold text-sm flex items-center gap-2">
+                <span>Tu Invitación en Vivo:</span>
+                <span className="text-amber-300 font-cinzel">{currentEventSettings?.title || currentProject.name}</span>
+              </div>
+              <div className="text-neutral-300 text-xs flex flex-wrap items-center gap-2 mt-0.5">
+                <span>Homenajeados: <strong className="text-white">{currentEventSettings?.honoreeName || currentProject.honoreeName}</strong></span>
+                <span>•</span>
+                <span>Fecha: <strong className="text-white">{currentEventSettings?.date || currentProject.eventDate}</strong></span>
+                <span>•</span>
+                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] uppercase font-bold border border-amber-500/30">
+                  Plan {currentProject.planId.toUpperCase()}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (onNavigate) {
+                  onNavigate('client');
+                } else {
+                  window.location.hash = 'cliente';
+                }
+              }}
+              className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 flex items-center gap-1.5 text-xs font-semibold"
+            >
+              <Settings className="w-3.5 h-3.5 text-amber-400" />
+              <span>Editar Datos</span>
+            </button>
+            {onOpenTvMode && currentPlan.hasTvMode && (
+              <button
+                onClick={onOpenTvMode}
+                className="px-3.5 py-2 rounded-xl bg-purple-900/70 hover:bg-purple-800 text-purple-200 border border-purple-600/50 flex items-center gap-1.5 text-xs font-semibold shadow-sm"
+              >
+                <Tv className="w-3.5 h-3.5 text-purple-300" />
+                <span>Pantalla TV</span>
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
       <div className="w-full max-w-5xl mb-4 bg-neutral-900/95 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-neutral-800 shadow-xl flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Back Button */}
@@ -233,8 +305,10 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
           )}
         </div>
       </div>
+      )}
 
       {/* 2. CATEGORY SELECTOR & QUICK TEMPLATE SWITCHER */}
+      {!isClientView && (
       <div className="w-full max-w-5xl mb-6 bg-neutral-950/80 p-3 sm:p-4 rounded-2xl border border-neutral-800/80 space-y-3">
         {/* Category Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
@@ -316,6 +390,7 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
           </button>
         </div>
       </div>
+      )}
 
       {/* 3. SIMULATOR FRAME */}
       <div className="relative w-full flex justify-center">
@@ -364,12 +439,13 @@ export const MobileMockup: React.FC<MobileMockupProps> = ({
               className="w-full h-full rounded-[38px] overflow-y-auto overflow-x-hidden relative bg-[#fdfbf7] shadow-inner"
               style={{ overscrollBehavior: 'contain' }}
             >
-              {/* Force clean remount of InvitationView on template switch */}
+              {/* Force clean remount of InvitationView on template switch or custom data update */}
               <InvitationView 
-                key={`${currentTemplate.id}-${guestToken}`}
+                key={`${currentTemplate.id}-${guestToken}-${isClientView ? 'client' : 'demo'}-${currentEventSettings?.honoreeName || ''}-${currentEventSettings?.date || ''}`}
                 guestToken={guestToken}
                 isMockupFrame={true} 
                 activeTemplate={currentTemplate}
+                customSettings={isClientView ? currentEventSettings : undefined}
                 onOpenTvMode={onOpenTvMode}
               />
             </div>
