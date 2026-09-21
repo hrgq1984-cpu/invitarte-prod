@@ -1,5 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  updateDoc, 
+  onSnapshot 
+} from 'firebase/firestore';
+import { db, cleanForFirestore } from './firebase';
+import { 
   Plan, 
   DesignTemplate, 
   Project, 
@@ -545,16 +554,223 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
+  // Real-time Cloud Synchronization with Firestore across all terminals & devices
+  useEffect(() => {
+    if (!db) return;
+
+    // 1. Synchronize Projects across devices
+    const unsubProjects = onSnapshot(collection(db, 'projects'), (snapshot) => {
+      const deletedIds = getDeletedIds();
+      const remoteProjects: Project[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as Project;
+        if (data && data.id && !deletedIds.includes(data.id) && !isDemoProject(data)) {
+          remoteProjects.push(data);
+        }
+      });
+
+      setProjects(prev => {
+        const map = new Map<string, Project>();
+        // Remote projects are authoritative
+        remoteProjects.forEach(p => map.set(p.id, p));
+        // Keep active local projects that haven't been deleted
+        prev.forEach(p => {
+          if (!map.has(p.id) && !deletedIds.includes(p.id) && !isDemoProject(p)) {
+            map.set(p.id, p);
+          }
+        });
+        const merged = Array.from(map.values()).sort((a, b) => 
+          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
+        safeSetLocalStorage(`${STORAGE_KEY}_projects`, JSON.stringify(merged));
+        return merged;
+      });
+    }, (err) => {
+      console.warn('Firestore projects listener fallback to local cache:', err);
+    });
+
+    // 2. Synchronize Payments & Receipts
+    const unsubPayments = onSnapshot(collection(db, 'payments'), (snapshot) => {
+      const remotePayments: PaymentTransaction[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as PaymentTransaction;
+        if (data && data.id) remotePayments.push(data);
+      });
+
+      setPayments(prev => {
+        const map = new Map<string, PaymentTransaction>();
+        remotePayments.forEach(p => map.set(p.id, p));
+        prev.forEach(p => {
+          if (!map.has(p.id)) map.set(p.id, p);
+        });
+        const merged = Array.from(map.values());
+        safeSetLocalStorage(`${STORAGE_KEY}_payments`, JSON.stringify(merged));
+        return merged;
+      });
+    }, (err) => {
+      console.warn('Firestore payments listener fallback:', err);
+    });
+
+    // 3. Synchronize Admin Notifications
+    const unsubNotifs = onSnapshot(collection(db, 'admin_notifications'), (snapshot) => {
+      const remoteNotifs: AdminNotification[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as AdminNotification;
+        if (data && data.id) remoteNotifs.push(data);
+      });
+
+      setAdminNotifications(prev => {
+        const map = new Map<string, AdminNotification>();
+        remoteNotifs.forEach(n => map.set(n.id, n));
+        prev.forEach(n => {
+          if (!map.has(n.id)) map.set(n.id, n);
+        });
+        const merged = Array.from(map.values()).sort((a, b) => 
+          new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
+        safeSetLocalStorage(`${STORAGE_KEY}_admin_notifications`, JSON.stringify(merged));
+        return merged;
+      });
+    }, (err) => {
+      console.warn('Firestore notifications listener fallback:', err);
+    });
+
+    // 4. Synchronize Event Settings
+    const unsubSettings = onSnapshot(collection(db, 'event_settings'), (snapshot) => {
+      const remoteSettings: Record<string, EventSettings> = {};
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as EventSettings;
+        if (data && docSnap.id) remoteSettings[docSnap.id] = data;
+      });
+
+      if (Object.keys(remoteSettings).length > 0) {
+        setEventSettingsMap(prev => {
+          const merged = { ...prev, ...remoteSettings };
+          safeSetLocalStorage(`${STORAGE_KEY}_settings`, JSON.stringify(merged));
+          return merged;
+        });
+      }
+    }, (err) => {
+      console.warn('Firestore event settings listener fallback:', err);
+    });
+
+    // 5. Synchronize Commercial Plans
+    const unsubPlans = onSnapshot(collection(db, 'plans'), (snapshot) => {
+      const remotePlans: Plan[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as Plan;
+        if (data && data.id) remotePlans.push(data);
+      });
+
+      if (remotePlans.length > 0) {
+        setPlans(prev => prev.map(p => {
+          const remote = remotePlans.find(rp => rp.id === p.id);
+          return remote ? { ...p, price: remote.price, active: remote.active } : p;
+        }));
+      }
+    }, (err) => {
+      console.warn('Firestore plans listener fallback:', err);
+    });
+
+    // 6. Synchronize Guests
+    const unsubGuests = onSnapshot(collection(db, 'guests'), (snapshot) => {
+      const grouped: Record<string, Guest[]> = {};
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as Guest;
+        if (data && data.projectId) {
+          if (!grouped[data.projectId]) grouped[data.projectId] = [];
+          grouped[data.projectId].push(data);
+        }
+      });
+      if (Object.keys(grouped).length > 0) {
+        setGuestsMap(prev => {
+          const merged = { ...prev, ...grouped };
+          safeSetLocalStorage(`${STORAGE_KEY}_guests`, JSON.stringify(merged));
+          return merged;
+        });
+      }
+    }, (err) => {
+      console.warn('Firestore guests listener fallback:', err);
+    });
+
+    // 7. Synchronize Blessings
+    const unsubBlessings = onSnapshot(collection(db, 'blessings'), (snapshot) => {
+      const grouped: Record<string, Blessing[]> = {};
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as Blessing;
+        if (data && data.projectId) {
+          if (!grouped[data.projectId]) grouped[data.projectId] = [];
+          grouped[data.projectId].push(data);
+        }
+      });
+      if (Object.keys(grouped).length > 0) {
+        setBlessingsMap(prev => {
+          const merged = { ...prev, ...grouped };
+          safeSetLocalStorage(`${STORAGE_KEY}_blessings`, JSON.stringify(merged));
+          return merged;
+        });
+      }
+    }, (err) => {
+      console.warn('Firestore blessings listener fallback:', err);
+    });
+
+    // 8. Synchronize Photos
+    const unsubPhotos = onSnapshot(collection(db, 'photos'), (snapshot) => {
+      const grouped: Record<string, EventPhoto[]> = {};
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as EventPhoto;
+        if (data && data.projectId) {
+          if (!grouped[data.projectId]) grouped[data.projectId] = [];
+          grouped[data.projectId].push(data);
+        }
+      });
+      if (Object.keys(grouped).length > 0) {
+        setPhotosMap(prev => {
+          const merged = { ...prev, ...grouped };
+          safeSetLocalStorage(`${STORAGE_KEY}_photos`, JSON.stringify(merged));
+          return merged;
+        });
+      }
+    }, (err) => {
+      console.warn('Firestore photos listener fallback:', err);
+    });
+
+    return () => {
+      unsubProjects();
+      unsubPayments();
+      unsubNotifs();
+      unsubSettings();
+      unsubPlans();
+      unsubGuests();
+      unsubBlessings();
+      unsubPhotos();
+    };
+  }, []);
+
   const markAdminNotificationAsRead = (id: string) => {
     setAdminNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    if (db) {
+      setDoc(doc(db, 'admin_notifications', id), { read: true }, { merge: true }).catch(() => {});
+    }
   };
 
   const markAllAdminNotificationsAsRead = () => {
-    setAdminNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setAdminNotifications(prev => {
+      const updated = prev.map(n => ({ ...n, read: true }));
+      if (db) {
+        updated.forEach(n => {
+          setDoc(doc(db, 'admin_notifications', n.id), { read: true }, { merge: true }).catch(() => {});
+        });
+      }
+      return updated;
+    });
   };
 
   const deleteAdminNotification = (id: string) => {
     setAdminNotifications(prev => prev.filter(n => n.id !== id));
+    if (db) {
+      deleteDoc(doc(db, 'admin_notifications', id)).catch(() => {});
+    }
   };
 
   const unreadAdminNotificationsCount = adminNotifications.filter(n => !n.read).length;
@@ -576,17 +792,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const updatePlanPrice = (planId: PlanTier, newPrice: number) => {
     setPlans(prev => prev.map(p => p.id === planId ? { ...p, price: newPrice } : p));
+    if (db) {
+      setDoc(doc(db, 'plans', planId), { id: planId, price: newPrice }, { merge: true }).catch(() => {});
+    }
   };
 
   const updateEventSettings = (projectId: string, settings: Partial<EventSettings>) => {
-    setEventSettingsMap(prev => ({
-      ...prev,
-      [projectId]: {
+    setEventSettingsMap(prev => {
+      const updated = {
         ...(prev[projectId] || REFERENCE_EVENT_SETTINGS),
         ...settings
+      };
+      if (db) {
+        setDoc(doc(db, 'event_settings', projectId), cleanForFirestore(updated), { merge: true }).catch(() => {});
       }
-    }));
+      return {
+        ...prev,
+        [projectId]: updated
+      };
+    });
   };
+
 
   const addGuest = (projectId: string, guestData: Omit<Guest, 'id' | 'projectId' | 'updatedAt' | 'inviteToken' | 'attendance' | 'adultsConfirmed' | 'childrenConfirmed'>): Guest => {
     const slugName = guestData.name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 20);
@@ -607,14 +833,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       [projectId]: [...(prev[projectId] || []), newGuest]
     }));
 
+    if (db) {
+      setDoc(doc(db, 'guests', newGuest.id), cleanForFirestore(newGuest)).catch(() => {});
+    }
+
     return newGuest;
   };
 
   const updateGuest = (projectId: string, guestId: string, updates: Partial<Guest>) => {
-    setGuestsMap(prev => ({
-      ...prev,
-      [projectId]: (prev[projectId] || []).map(g => g.id === guestId ? { ...g, ...updates, updatedAt: new Date().toISOString() } : g)
-    }));
+    setGuestsMap(prev => {
+      const list = prev[projectId] || [];
+      const updatedList = list.map(g => {
+        if (g.id === guestId) {
+          const updated = { ...g, ...updates, updatedAt: new Date().toISOString() };
+          if (db) {
+            setDoc(doc(db, 'guests', guestId), cleanForFirestore(updated), { merge: true }).catch(() => {});
+          }
+          return updated;
+        }
+        return g;
+      });
+      return {
+        ...prev,
+        [projectId]: updatedList
+      };
+    });
   };
 
   const deleteGuest = (projectId: string, guestId: string) => {
@@ -622,6 +865,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...prev,
       [projectId]: (prev[projectId] || []).filter(g => g.id !== guestId)
     }));
+    if (db) {
+      deleteDoc(doc(db, 'guests', guestId)).catch(() => {});
+    }
   };
 
   const importGuestsCsv = (projectId: string, csvContent: string): number => {
@@ -644,7 +890,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const slugName = name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 18);
         const token = `${slugName}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-        newGuests.push({
+        const gItem: Guest = {
           id: `guest-csv-${Date.now()}-${i}`,
           projectId,
           name,
@@ -657,7 +903,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           adultsConfirmed: 0,
           childrenConfirmed: 0,
           updatedAt: new Date().toISOString()
-        });
+        };
+        newGuests.push(gItem);
+
+        if (db) {
+          setDoc(doc(db, 'guests', gItem.id), cleanForFirestore(gItem)).catch(() => {});
+        }
         count++;
       }
     }
@@ -687,6 +938,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       [projectId]: [newBlessing, ...(prev[projectId] || [])]
     }));
 
+    if (db) {
+      setDoc(doc(db, 'blessings', newBlessing.id), cleanForFirestore(newBlessing)).catch(() => {});
+    }
+
     return newBlessing;
   };
 
@@ -695,6 +950,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...prev,
       [projectId]: (prev[projectId] || []).map(b => b.id === blessingId ? { ...b, status } : b)
     }));
+    if (db) {
+      setDoc(doc(db, 'blessings', blessingId), { status }, { merge: true }).catch(() => {});
+    }
   };
 
   const addPhoto = (projectId: string, photoData: Omit<EventPhoto, 'id' | 'projectId' | 'createdAt'>): EventPhoto => {
@@ -710,6 +968,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       [projectId]: [newPhoto, ...(prev[projectId] || [])]
     }));
 
+    if (db) {
+      setDoc(doc(db, 'photos', newPhoto.id), cleanForFirestore(newPhoto)).catch(() => {});
+    }
+
     return newPhoto;
   };
 
@@ -718,12 +980,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...prev,
       [projectId]: (prev[projectId] || []).map(p => p.id === photoId ? { ...p, status } : p)
     }));
+    if (db) {
+      setDoc(doc(db, 'photos', photoId), { status }, { merge: true }).catch(() => {});
+    }
   };
 
   const updateDisplaySettings = (projectId: string, settings: Partial<DisplaySettings>) => {
-    setDisplaySettingsMap(prev => ({
-      ...prev,
-      [projectId]: {
+    setDisplaySettingsMap(prev => {
+      const updated = {
         ...(prev[projectId] || {
           projectId,
           rotationSeconds: 5,
@@ -734,9 +998,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }),
         ...settings,
         updatedAt: new Date().toISOString()
+      };
+      if (db) {
+        setDoc(doc(db, 'display_settings', projectId), cleanForFirestore(updated), { merge: true }).catch(() => {});
       }
-    }));
+      return {
+        ...prev,
+        [projectId]: updated
+      };
+    });
   };
+
 
   const createOrder = (data: { 
     eventType: EventType; 
@@ -900,12 +1172,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.warn('LocalStorage write warning:', e);
     }
 
+    // Persist immediately to Firestore cloud database so order syncs across all devices & terminals
+    if (db) {
+      setDoc(doc(db, 'projects', projectId), cleanForFirestore(newProject)).catch(e => console.warn('Firestore project write warning:', e));
+      setDoc(doc(db, 'payments', paymentId), cleanForFirestore(newPayment)).catch(e => console.warn('Firestore payment write warning:', e));
+      setDoc(doc(db, 'event_settings', projectId), cleanForFirestore(newSettings)).catch(e => console.warn('Firestore settings write warning:', e));
+      setDoc(doc(db, 'admin_notifications', notif.id), cleanForFirestore(notif)).catch(e => console.warn('Firestore notif write warning:', e));
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('invitarte_store_updated'));
     }
 
     return newProject;
   };
+
 
   const simulateTestOrder = (): Project => {
     const testSamples: Array<{
@@ -987,6 +1268,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setPayments([]);
       setAdminNotifications([]);
       setSelectedProjectId(REFERENCE_PROJECT.id);
+
+      if (db) {
+        allIds.forEach(id => {
+          deleteDoc(doc(db, 'projects', id)).catch(() => {});
+          deleteDoc(doc(db, 'event_settings', id)).catch(() => {});
+        });
+      }
 
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('invitarte_store_updated'));
@@ -1081,11 +1369,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return prev;
     });
 
-    // 8. Broadcast update
+    // 8. Delete from Firestore cloud database
+    if (db) {
+      deleteDoc(doc(db, 'projects', projectId)).catch(() => {});
+      deleteDoc(doc(db, 'event_settings', projectId)).catch(() => {});
+    }
+
+    // 9. Broadcast update
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('invitarte_store_updated'));
     }
   };
+
 
   const deleteOrder = deleteProject;
 
@@ -1127,6 +1422,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         expiresAt: reviewDeadline.toISOString(),
         updatedAt: now.toISOString()
       } : p));
+
+      if (db) {
+        setDoc(doc(db, 'payments', paymentId), cleanForFirestore(updatedPayment), { merge: true }).catch(() => {});
+        setDoc(doc(db, 'projects', projectId), {
+          status: 'preview_available',
+          receiptUrl: receiptUrl || undefined,
+          paidAt: now.toISOString(),
+          previewAvailableAt: now.toISOString(),
+          expiresAt: reviewDeadline.toISOString(),
+          updatedAt: now.toISOString()
+        }, { merge: true }).catch(() => {});
+      }
     } else {
       setProjects(prev => prev.map(p => p.id === projectId ? {
         ...p,
@@ -1147,6 +1454,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         createdAt: new Date().toISOString()
       };
       setAdminNotifications(prev => [notif, ...prev]);
+
+      if (db) {
+        setDoc(doc(db, 'payments', paymentId), cleanForFirestore(updatedPayment), { merge: true }).catch(() => {});
+        setDoc(doc(db, 'projects', projectId), {
+          status: 'payment_review',
+          receiptUrl: receiptUrl || undefined,
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
+        setDoc(doc(db, 'admin_notifications', notif.id), cleanForFirestore(notif)).catch(() => {});
+      }
     }
 
     return updatedPayment;
@@ -1176,6 +1493,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Mark related notification as read if exists
     setAdminNotifications(prev => prev.map(n => n.paymentId === paymentId || n.projectId === pay.projectId ? { ...n, read: true } : n));
+
+    if (db) {
+      setDoc(doc(db, 'payments', paymentId), { status: 'completed', paidAt: now.toISOString() }, { merge: true }).catch(() => {});
+      setDoc(doc(db, 'projects', pay.projectId), {
+        status: 'preview_available',
+        paidAt: now.toISOString(),
+        previewAvailableAt: now.toISOString(),
+        expiresAt: reviewDeadline.toISOString(),
+        updatedAt: now.toISOString()
+      }, { merge: true }).catch(() => {});
+    }
   };
 
   const confirmOrderAdmin = (projectId: string) => {
@@ -1198,6 +1526,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } : p));
 
     setAdminNotifications(prev => prev.map(n => n.projectId === projectId ? { ...n, read: true } : n));
+
+    if (db) {
+      setDoc(doc(db, 'projects', projectId), {
+        status: 'preview_available',
+        paidAt: now.toISOString(),
+        previewAvailableAt: now.toISOString(),
+        expiresAt: reviewDeadline.toISOString(),
+        updatedAt: now.toISOString()
+      }, { merge: true }).catch(() => {});
+      payments.filter(p => p.projectId === projectId).forEach(p => {
+        setDoc(doc(db, 'payments', p.id), { status: 'completed', paidAt: now.toISOString() }, { merge: true }).catch(() => {});
+      });
+    }
   };
 
   const rejectPaymentAdmin = (paymentId: string, reason?: string) => {
@@ -1219,6 +1560,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Mark related notification as read
     setAdminNotifications(prev => prev.map(n => n.paymentId === paymentId ? { ...n, read: true } : n));
+
+    if (db) {
+      setDoc(doc(db, 'payments', paymentId), {
+        status: 'failed',
+        receiptNotes: reason || 'Comprobante no válido o importe insuficiente'
+      }, { merge: true }).catch(() => {});
+      setDoc(doc(db, 'projects', pay.projectId), {
+        status: 'pending_payment',
+        correctionNotes: reason || 'El comprobante de transferencia bancaria no pudo ser validado. Por favor, vuelve a subir el comprobante correcto.',
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch(() => {});
+    }
   };
 
   const approveProjectByClient = (projectId: string) => {
@@ -1229,6 +1582,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       publishedAt: now.toISOString(),
       updatedAt: now.toISOString()
     } : p));
+
+    if (db) {
+      setDoc(doc(db, 'projects', projectId), {
+        status: 'published',
+        publishedAt: now.toISOString(),
+        updatedAt: now.toISOString()
+      }, { merge: true }).catch(() => {});
+    }
   };
 
   const requestClientCorrection = (projectId: string, notes: string) => {
@@ -1237,6 +1598,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       correctionNotes: notes,
       updatedAt: new Date().toISOString()
     } : p));
+
+    if (db) {
+      setDoc(doc(db, 'projects', projectId), {
+        correctionNotes: notes,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch(() => {});
+    }
   };
 
   const adminSetProjectStatus = (projectId: string, status: ProjectStatus) => {
@@ -1247,7 +1615,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       publishedAt: status === 'published' ? (p.publishedAt || now.toISOString()) : p.publishedAt,
       updatedAt: now.toISOString()
     } : p));
+
+    if (db) {
+      setDoc(doc(db, 'projects', projectId), {
+        status,
+        publishedAt: status === 'published' ? now.toISOString() : undefined,
+        updatedAt: now.toISOString()
+      }, { merge: true }).catch(() => {});
+    }
   };
+
 
   const submitRsvp = (rsvpData: Omit<Rsvp, 'id' | 'createdAt'>) => {
     const now = new Date().toISOString();

@@ -1,102 +1,70 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    function isAdmin() {
-      return isAuthenticated() && 
-        (request.auth.token.email == 'hrgq.1984@gmail.com' || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-    
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
 
-    function isProjectOwner(projectId) {
-      return isAuthenticated() && (
-        resource.data.clientId == request.auth.uid ||
-        get(/databases/$(database)/documents/projects/$(projectId)).data.clientId == request.auth.uid
-      );
-    }
-
-    // Public read of templates and active plans
+    // Plans and Templates
     match /plans/{planId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     match /templates/{templateId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
-    // User profiles
-    match /users/{userId} {
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin());
-      allow delete: if isAdmin();
-    }
-
-    // Projects (Invitations)
+    // Projects (Invitations and Orders)
     match /projects/{projectId} {
-      // Public can read basic project status if slug matches for invitation view
-      allow read: if true;
-      allow create: if isAuthenticated();
-      // Client can update only their project; admin can update any
-      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.clientId);
-      allow delete: if isAdmin();
-
-      // Subcollections inside project
-      match /settings/{docId} {
-        allow read: if true;
-        allow write: if isAdmin() || isProjectOwner(projectId);
-      }
-
-      match /guests/{guestId} {
-        // Guests can read their own guest doc if they have the token/id
-        allow read: if true;
-        allow write: if isAdmin() || isProjectOwner(projectId);
-      }
-
-      match /rsvps/{rsvpId} {
-        // Public guests can create RSVP for this project
-        allow read: if isAdmin() || isProjectOwner(projectId);
-        allow create: if true;
-        allow update, delete: if isAdmin() || isProjectOwner(projectId);
-      }
-
-      match /blessings/{blessingId} {
-        // Public can read approved blessings and create new blessing
-        allow read: if true;
-        allow create: if true;
-        allow update, delete: if isAdmin() || isProjectOwner(projectId);
-      }
-
-      match /photos/{photoId} {
-        // Public can read approved photos and guests can upload (if plan allows)
-        allow read: if true;
-        allow create: if true;
-        allow update, delete: if isAdmin() || isProjectOwner(projectId);
-      }
-
-      match /display/{docId} {
-        allow read: if true;
-        allow write: if isAdmin() || isProjectOwner(projectId);
+      allow read, write: if true;
+      match /{allChildren=**} {
+        allow read, write: if true;
       }
     }
 
-    // Payments
+    // Event Settings
+    match /event_settings/{settingId} {
+      allow read, write: if true;
+    }
+
+    // Guests, Blessings, Photos, Display Settings
+    match /guests/{guestId} {
+      allow read, write: if true;
+    }
+
+    match /blessings/{blessingId} {
+      allow read, write: if true;
+    }
+
+    match /photos/{photoId} {
+      allow read, write: if true;
+    }
+
+    match /display_settings/{displayId} {
+      allow read, write: if true;
+    }
+
+    // Payments / Bank transfer receipts
     match /payments/{paymentId} {
-      allow read: if isAdmin() || (isAuthenticated() && resource.data.clientId == request.auth.uid);
-      allow create: if isAuthenticated();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow read, write: if true;
+    }
+
+    // Admin Notifications
+    match /admin_notifications/{notifId} {
+      allow read, write: if true;
+    }
+
+    // User profiles & system
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    match /system/{systemId} {
+      allow read, write: if true;
     }
   }
 }
+
+
