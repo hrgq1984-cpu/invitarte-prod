@@ -22,6 +22,31 @@ export type EventType =
   | 'confirmacion'
   | 'otros';
 
+/**
+ * Event types where a religious or civil Ceremony can be enabled/disabled.
+ * Cumpleaños and Otros Eventos strictly do NOT include Ceremony.
+ */
+export const EVENT_TYPES_WITH_CEREMONY_OPTION: EventType[] = [
+  'boda',
+  '15anos',
+  'bautismo',
+  'comunion',
+  'confirmacion'
+];
+
+export const isCeremonySupported = (eventType?: string): boolean => {
+  if (!eventType) return false;
+  return EVENT_TYPES_WITH_CEREMONY_OPTION.includes(eventType as EventType);
+};
+
+export interface EventScheduleItem {
+  id?: string;
+  time: string;
+  title: string;
+  description: string;
+  iconName?: string;
+}
+
 export type PlanTier = 'bronce' | 'plata' | 'oro';
 
 export interface Plan {
@@ -114,8 +139,13 @@ export interface EventSettings {
   subtitle: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
+  hasCeremony?: boolean; // Available for boda, 15anos, bautismo, comunion, confirmacion
   ceremonyTime?: string;
+  ceremonyLocationName?: string;
+  ceremonyAddress?: string;
+  ceremonyMapsUrl?: string;
   partyTime?: string;
+  partyLocationName?: string;
   timezone: string;
   locationName: string;
   address: string;
@@ -137,12 +167,7 @@ export interface EventSettings {
   waxSealText?: string;
   coverPhotoUrl: string;
   carouselPhotos: string[];
-  schedule: Array<{
-    time: string;
-    title: string;
-    description: string;
-    iconName?: string;
-  }>;
+  schedule: EventScheduleItem[];
 }
 
 export type AttendanceStatus = 'pending' | 'confirmed' | 'declined';

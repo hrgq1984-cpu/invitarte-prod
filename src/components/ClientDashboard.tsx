@@ -25,10 +25,20 @@ import {
   Eye,
   Smartphone,
   Maximize2,
-  X
+  X,
+  ListOrdered,
+  Sparkles,
+  ArrowUp,
+  ArrowDown,
+  Edit3,
+  Calendar,
+  MapPin,
+  Church,
+  PartyPopper
 } from 'lucide-react';
 import { useStore } from '../lib/store';
-import { Guest, EventSettings } from '../types';
+import { Guest, EventSettings, EventScheduleItem, isCeremonySupported } from '../types';
+import { DEFAULT_ITINERARIES } from '../data/itinerarySuggestions';
 import { compressImageFile } from '../lib/imageCompression';
 import { InvitationView } from './InvitationView';
 
@@ -53,7 +63,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ onNavigate, on
   } = useStore();
 
   const plan = plans.find(p => p.id === currentProject.planId) || plans[0];
-  const [activeTab, setActiveTab] = useState<'summary' | 'details' | 'guests' | 'photos' | 'drive'>('summary');
+  const [activeTab, setActiveTab] = useState<'summary' | 'details' | 'itinerary' | 'guests' | 'photos' | 'drive'>('summary');
   
   // Correction notes state
   const [correctionText, setCorrectionText] = useState('');
@@ -82,16 +92,132 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ onNavigate, on
   // Live simulator modal state
   const [showLivePreviewModal, setShowLivePreviewModal] = useState(false);
 
+  // Ceremony availability for current event
+  const ceremonySupported = isCeremonySupported(currentProject.eventType);
+
   // Editable Event Settings State
-  const [formData, setFormData] = useState<EventSettings>(currentEventSettings);
+  const [formData, setFormData] = useState<EventSettings>(() => {
+    const s = currentEventSettings;
+    const hasCeremony = ceremonySupported ? (s.hasCeremony !== false) : false;
+    const schedule = (s.schedule && s.schedule.length > 0)
+      ? s.schedule
+      : (DEFAULT_ITINERARIES[currentProject.eventType] || DEFAULT_ITINERARIES.otros);
+    return {
+      ...s,
+      hasCeremony,
+      schedule
+    };
+  });
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Keep formData in sync when currentEventSettings updates in store/Firestore
   useEffect(() => {
     if (currentEventSettings && currentEventSettings.projectId === currentProject.id) {
-      setFormData(currentEventSettings);
+      const isCSupported = isCeremonySupported(currentProject.eventType);
+      const hasCeremony = isCSupported ? (currentEventSettings.hasCeremony !== false) : false;
+      const schedule = (currentEventSettings.schedule && currentEventSettings.schedule.length > 0)
+        ? currentEventSettings.schedule
+        : (DEFAULT_ITINERARIES[currentProject.eventType] || DEFAULT_ITINERARIES.otros);
+      setFormData({
+        ...currentEventSettings,
+        hasCeremony,
+        schedule
+      });
     }
-  }, [currentEventSettings, currentProject.id]);
+  }, [currentEventSettings, currentProject.id, currentProject.eventType]);
+
+  // Itinerary temporary / editing state
+  const [newScheduleTime, setNewScheduleTime] = useState('21:30');
+  const [newScheduleTitle, setNewScheduleTitle] = useState('');
+  const [newScheduleDesc, setNewScheduleDesc] = useState('');
+  const [editingScheduleIdx, setEditingScheduleIdx] = useState<number | null>(null);
+  const [editScheduleTime, setEditScheduleTime] = useState('');
+  const [editScheduleTitle, setEditScheduleTitle] = useState('');
+  const [editScheduleDesc, setEditScheduleDesc] = useState('');
+  const [itinerarySavedFeedback, setItinerarySavedFeedback] = useState(false);
+
+  const handleAddScheduleItem = () => {
+    if (!newScheduleTitle.trim()) return;
+    const newItem: EventScheduleItem = {
+      id: `sch-${Date.now()}`,
+      time: newScheduleTime.trim() || '20:00',
+      title: newScheduleTitle.trim(),
+      description: newScheduleDesc.trim()
+    };
+    const updated = [...(formData.schedule || []), newItem];
+    const newSettings = { ...formData, schedule: updated };
+    setFormData(newSettings);
+    updateEventSettings(currentProject.id, newSettings);
+    setNewScheduleTitle('');
+    setNewScheduleDesc('');
+    setItinerarySavedFeedback(true);
+    setTimeout(() => setItinerarySavedFeedback(false), 2500);
+  };
+
+  const handleStartEditSchedule = (idx: number) => {
+    const item = formData.schedule?.[idx];
+    if (!item) return;
+    setEditingScheduleIdx(idx);
+    setEditScheduleTime(item.time);
+    setEditScheduleTitle(item.title);
+    setEditScheduleDesc(item.description || '');
+  };
+
+  const handleSaveEditSchedule = (idx: number) => {
+    if (!editScheduleTitle.trim()) return;
+    const updated = [...(formData.schedule || [])];
+    updated[idx] = {
+      ...updated[idx],
+      time: editScheduleTime.trim() || '20:00',
+      title: editScheduleTitle.trim(),
+      description: editScheduleDesc.trim()
+    };
+    const newSettings = { ...formData, schedule: updated };
+    setFormData(newSettings);
+    updateEventSettings(currentProject.id, newSettings);
+    setEditingScheduleIdx(null);
+    setItinerarySavedFeedback(true);
+    setTimeout(() => setItinerarySavedFeedback(false), 2500);
+  };
+
+  const handleDeleteScheduleItem = (idx: number) => {
+    const updated = (formData.schedule || []).filter((_, i) => i !== idx);
+    const newSettings = { ...formData, schedule: updated };
+    setFormData(newSettings);
+    updateEventSettings(currentProject.id, newSettings);
+    setItinerarySavedFeedback(true);
+    setTimeout(() => setItinerarySavedFeedback(false), 2500);
+  };
+
+  const handleMoveScheduleItem = (idx: number, direction: 'up' | 'down') => {
+    const items = [...(formData.schedule || [])];
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= items.length) return;
+    const temp = items[idx];
+    items[idx] = items[targetIdx];
+    items[targetIdx] = temp;
+    const newSettings = { ...formData, schedule: items };
+    setFormData(newSettings);
+    updateEventSettings(currentProject.id, newSettings);
+  };
+
+  const handleSortScheduleChronologically = () => {
+    const items = [...(formData.schedule || [])].sort((a, b) => a.time.localeCompare(b.time));
+    const newSettings = { ...formData, schedule: items };
+    setFormData(newSettings);
+    updateEventSettings(currentProject.id, newSettings);
+    setItinerarySavedFeedback(true);
+    setTimeout(() => setItinerarySavedFeedback(false), 2500);
+  };
+
+  const handleLoadSuggestedItinerary = () => {
+    const defaultList = DEFAULT_ITINERARIES[currentProject.eventType] || DEFAULT_ITINERARIES.otros;
+    const newSettings = { ...formData, schedule: defaultList };
+    setFormData(newSettings);
+    updateEventSettings(currentProject.id, newSettings);
+    setItinerarySavedFeedback(true);
+    setTimeout(() => setItinerarySavedFeedback(false), 2500);
+  };
 
   // Photo upload ref
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -410,6 +536,16 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ onNavigate, on
         </button>
 
         <button
+          onClick={() => setActiveTab('itinerary')}
+          className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
+            activeTab === 'itinerary' ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <ListOrdered className="w-4 h-4" />
+          Itinerario del Día ({formData.schedule?.length || 0})
+        </button>
+
+        <button
           onClick={() => setActiveTab('guests')}
           className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-1.5 ${
             activeTab === 'guests' ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white'
@@ -571,7 +707,7 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ onNavigate, on
             </div>
 
             <div>
-              <label className="block text-neutral-400 mb-1 font-semibold">Fecha (YYYY-MM-DD)</label>
+              <label className="block text-neutral-400 mb-1 font-semibold">Fecha del Evento</label>
               <input
                 type="date"
                 value={formData.date}
@@ -580,55 +716,256 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ onNavigate, on
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-neutral-400 mb-1 font-semibold">Hora Ceremonia</label>
-                <input
-                  type="time"
-                  value={formData.ceremonyTime || '11:00'}
-                  onChange={(e) => setFormData({ ...formData, ceremonyTime: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
-                />
+            {/* SECCIÓN CEREMONIA (Boda, 15 Años, Bautismos, Confirmaciones, Comuniones) */}
+            {ceremonySupported ? (
+              <div className="sm:col-span-2 p-4 rounded-2xl bg-neutral-950 border border-amber-500/30 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="font-bold text-white flex items-center gap-2 text-xs">
+                      <Church className="w-4 h-4 text-amber-400" />
+                      <span>¿El evento incluye Ceremonia religiosa o civil?</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">
+                      Habilita o desactiva la sección de Ceremonia según cómo se organice la celebración.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, hasCeremony: true })}
+                      className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 ${
+                        formData.hasCeremony !== false
+                          ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/20'
+                          : 'bg-neutral-800 text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Sí, con Ceremonia</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, hasCeremony: false })}
+                      className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 ${
+                        formData.hasCeremony === false
+                          ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/20'
+                          : 'bg-neutral-800 text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      <span>No, solo Fiesta</span>
+                    </button>
+                  </div>
+                </div>
+
+                {formData.hasCeremony !== false ? (
+                  <div className="pt-3 border-t border-neutral-800/80 space-y-3">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                      <Church className="w-3.5 h-3.5" />
+                      <span>1. Datos de la Ceremonia (Religiosa / Civil)</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-neutral-400 mb-1 font-semibold">Hora Ceremonia</label>
+                        <input
+                          type="time"
+                          value={formData.ceremonyTime || '11:00'}
+                          onChange={(e) => setFormData({ ...formData, ceremonyTime: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-neutral-400 mb-1 font-semibold">Lugar / Parroquia / Registro</label>
+                        <input
+                          type="text"
+                          value={formData.ceremonyLocationName || ''}
+                          onChange={(e) => setFormData({ ...formData, ceremonyLocationName: e.target.value })}
+                          placeholder="Ej: Parroquia San José o Registro Civil"
+                          className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-neutral-400 mb-1 font-semibold">Dirección de la Ceremonia</label>
+                        <input
+                          type="text"
+                          value={formData.ceremonyAddress || ''}
+                          onChange={(e) => setFormData({ ...formData, ceremonyAddress: e.target.value })}
+                          placeholder="Ej: San Martín 350"
+                          className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-neutral-400 mb-1 font-semibold">Maps de la Ceremonia</label>
+                        <input
+                          type="url"
+                          value={formData.ceremonyMapsUrl || ''}
+                          onChange={(e) => setFormData({ ...formData, ceremonyMapsUrl: e.target.value })}
+                          placeholder="https://maps.app.goo.gl/..."
+                          className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5 pt-2">
+                      <PartyPopper className="w-3.5 h-3.5" />
+                      <span>2. Datos de la Fiesta / Salón</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-neutral-400 mb-1 font-semibold">Hora de la Fiesta</label>
+                        <input
+                          type="time"
+                          value={formData.partyTime || '13:00'}
+                          onChange={(e) => setFormData({ ...formData, partyTime: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-neutral-400 mb-1 font-semibold">Nombre del Salón / Quinta</label>
+                        <input
+                          type="text"
+                          value={formData.locationName}
+                          onChange={(e) => setFormData({ ...formData, locationName: e.target.value })}
+                          placeholder="Ej: Salón Las Palmeras"
+                          className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-neutral-400 mb-1 font-semibold">Dirección de la Fiesta</label>
+                        <input
+                          type="text"
+                          value={formData.address}
+                          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                          placeholder="Ej: Av. Circunvalación 1200"
+                          className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-neutral-400 mb-1 font-semibold">Maps del Salón</label>
+                        <input
+                          type="url"
+                          value={formData.mapsUrl}
+                          onChange={(e) => setFormData({ ...formData, mapsUrl: e.target.value })}
+                          placeholder="https://maps.app.goo.gl/..."
+                          className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-3 border-t border-neutral-800/80 space-y-3">
+                    <div className="p-2.5 rounded-xl bg-neutral-900 text-neutral-400 text-[11px] flex items-center gap-2">
+                      <CheckCircle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                      <span>La invitación mostrará directamente los datos y el horario del salón, sin mención a ceremonia previa.</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-neutral-400 mb-1 font-semibold">Hora de Inicio</label>
+                        <input
+                          type="time"
+                          value={formData.partyTime || formData.time || '21:30'}
+                          onChange={(e) => setFormData({ ...formData, partyTime: e.target.value, time: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-neutral-400 mb-1 font-semibold">Nombre del Salón / Lugar</label>
+                        <input
+                          type="text"
+                          value={formData.locationName}
+                          onChange={(e) => setFormData({ ...formData, locationName: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-neutral-400 mb-1 font-semibold">Dirección</label>
+                        <input
+                          type="text"
+                          value={formData.address}
+                          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-neutral-400 mb-1 font-semibold">Maps del Salón</label>
+                        <input
+                          type="url"
+                          value={formData.mapsUrl}
+                          onChange={(e) => setFormData({ ...formData, mapsUrl: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="block text-neutral-400 mb-1 font-semibold">Hora Fiesta</label>
-                <input
-                  type="time"
-                  value={formData.partyTime || '13:00'}
-                  onChange={(e) => setFormData({ ...formData, partyTime: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
-                />
+            ) : (
+              /* EVENTOS SIN CEREMONIA (Cumpleaños, Otros Eventos) */
+              <div className="sm:col-span-2 p-4 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-3">
+                <div className="flex items-center gap-2 text-white font-bold text-xs">
+                  <PartyPopper className="w-4 h-4 text-amber-400" />
+                  <span>Horarios & Lugar del Festejo</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-neutral-400 mb-1 font-semibold">Hora de Inicio</label>
+                    <input
+                      type="time"
+                      value={formData.partyTime || formData.time || '21:30'}
+                      onChange={(e) => setFormData({ ...formData, partyTime: e.target.value, time: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-neutral-400 mb-1 font-semibold">Nombre del Salón / Lugar</label>
+                    <input
+                      type="text"
+                      value={formData.locationName}
+                      onChange={(e) => setFormData({ ...formData, locationName: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-neutral-400 mb-1 font-semibold">Dirección</label>
+                    <input
+                      type="text"
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-neutral-400 mb-1 font-semibold">Enlace a Google Maps</label>
+                    <input
+                      type="url"
+                      value={formData.mapsUrl}
+                      onChange={(e) => setFormData({ ...formData, mapsUrl: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="sm:col-span-2">
-              <label className="block text-neutral-400 mb-1 font-semibold">Nombre del Salón / Lugar</label>
-              <input
-                type="text"
-                value={formData.locationName}
-                onChange={(e) => setFormData({ ...formData, locationName: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-neutral-400 mb-1 font-semibold">Dirección Completa</label>
-              <input
-                type="text"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-neutral-400 mb-1 font-semibold">Enlace a Google Maps</label>
-              <input
-                type="url"
-                value={formData.mapsUrl}
-                onChange={(e) => setFormData({ ...formData, mapsUrl: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
-              />
+            {/* ACCESO RÁPIDO A ITINERARIO */}
+            <div className="sm:col-span-2 p-4 rounded-2xl bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-950 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="text-white font-bold flex items-center gap-2 text-xs">
+                  <ListOrdered className="w-4 h-4 text-amber-400" />
+                  <span>Itinerario del Día ({formData.schedule?.length || 0} momentos programados)</span>
+                </div>
+                <p className="text-[11px] text-neutral-400">
+                  Organiza la secuencia de momentos especiales (Recepción, Vals, Cena, Brindis, Fiesta) para que tus invitados conozcan el cronograma.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('itinerary')}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold flex items-center gap-1.5 transition-all text-xs shadow-md whitespace-nowrap self-start sm:self-center"
+              >
+                <span>Configurar Itinerario</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
 
             <div className="sm:col-span-2">
@@ -722,6 +1059,276 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ onNavigate, on
             </div>
           </div>
         </form>
+      )}
+
+      {/* TAB: ITINERARIO DEL DÍA */}
+      {activeTab === 'itinerary' && (
+        <div className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-6 text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-neutral-800 pb-4">
+            <div>
+              <h3 className="text-base font-cinzel font-bold text-white flex items-center gap-2">
+                <ListOrdered className="w-5 h-5 text-amber-400" />
+                <span>Itinerario del Día</span>
+              </h3>
+              <p className="text-neutral-400 mt-0.5">
+                Define cada momento del festejo. Los cambios se guardan y se reflejan al instante en la invitación.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleLoadSuggestedItinerary}
+                className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-amber-300 border border-amber-500/30 font-bold flex items-center gap-1.5 transition-colors"
+                title="Cargar cronograma recomendado según el tipo de evento"
+              >
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>Cargar Sugerido</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSortScheduleChronologically}
+                className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 font-semibold flex items-center gap-1.5 transition-colors"
+                title="Ordenar cronológicamente por horario"
+              >
+                <Clock className="w-4 h-4 text-amber-400" />
+                <span>Ordenar por Hora</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenLivePreview}
+                className="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold flex items-center gap-1.5 transition-all"
+                title="Ver cómo queda la invitación"
+              >
+                <Eye className="w-4 h-4 text-amber-400" />
+                <span>Ver Vista Previa</span>
+              </button>
+            </div>
+          </div>
+
+          {itinerarySavedFeedback && (
+            <div className="p-3 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-center font-bold">
+              ✓ ¡Itinerario actualizado y guardado correctamente!
+            </div>
+          )}
+
+          {/* Formulario para agregar nuevo momento */}
+          <div className="p-4 rounded-2xl bg-neutral-950 border border-amber-500/30 space-y-3">
+            <div className="text-white font-bold flex items-center gap-2 text-xs">
+              <Plus className="w-4 h-4 text-amber-400" />
+              <span>Agregar Nuevo Momento al Itinerario</span>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+              <div className="sm:col-span-2">
+                <label className="block text-neutral-400 mb-1 font-semibold">Horario</label>
+                <input
+                  type="time"
+                  value={newScheduleTime}
+                  onChange={(e) => setNewScheduleTime(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="sm:col-span-4">
+                <label className="block text-neutral-400 mb-1 font-semibold">Título del Momento *</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Recepción de Invitados, Vals, Cena..."
+                  value={newScheduleTitle}
+                  onChange={(e) => setNewScheduleTitle(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="sm:col-span-4">
+                <label className="block text-neutral-400 mb-1 font-semibold">Detalle o Descripción (Opcional)</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Cóctel de bienvenida en el jardín"
+                  value={newScheduleDesc}
+                  onChange={(e) => setNewScheduleDesc(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <button
+                  type="button"
+                  onClick={handleAddScheduleItem}
+                  disabled={!newScheduleTitle.trim()}
+                  className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:hover:bg-amber-500 text-neutral-950 font-bold flex items-center justify-center gap-1.5 transition-all shadow"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Agregar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Lista de momentos del itinerario */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between text-neutral-400 text-xs px-1 font-semibold">
+              <span>Cronograma Actual ({formData.schedule?.length || 0} momentos)</span>
+              <span>Acciones</span>
+            </div>
+
+            {(!formData.schedule || formData.schedule.length === 0) ? (
+              <div className="p-8 text-center rounded-2xl bg-neutral-950 border border-dashed border-neutral-800 space-y-3">
+                <ListOrdered className="w-8 h-8 text-neutral-600 mx-auto" />
+                <div className="text-neutral-300 font-semibold">No hay momentos en el itinerario aún</div>
+                <p className="text-neutral-500 text-[11px] max-w-md mx-auto">
+                  Puedes cargar una plantilla de horarios sugerida con un solo clic o agregar cada momento personalizado.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleLoadSuggestedItinerary}
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold inline-flex items-center gap-1.5 shadow"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Cargar Cronograma Sugerido</span>
+                </button>
+              </div>
+            ) : (
+              formData.schedule.map((item, idx) => (
+                <div 
+                  key={item.id || idx}
+                  className="p-3.5 rounded-xl bg-neutral-950 border border-neutral-800/90 hover:border-amber-500/30 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  {editingScheduleIdx === idx ? (
+                    /* MODO EDICIÓN EN LÍNEA */
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+                      <div className="sm:col-span-2">
+                        <input
+                          type="time"
+                          value={editScheduleTime}
+                          onChange={(e) => setEditScheduleTime(e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-neutral-900 border border-amber-500/40 text-white font-mono text-xs focus:outline-none"
+                        />
+                      </div>
+                      <div className="sm:col-span-4">
+                        <input
+                          type="text"
+                          value={editScheduleTitle}
+                          onChange={(e) => setEditScheduleTitle(e.target.value)}
+                          placeholder="Título..."
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-neutral-900 border border-amber-500/40 text-white text-xs focus:outline-none"
+                        />
+                      </div>
+                      <div className="sm:col-span-4">
+                        <input
+                          type="text"
+                          value={editScheduleDesc}
+                          onChange={(e) => setEditScheduleDesc(e.target.value)}
+                          placeholder="Descripción opcional..."
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-neutral-900 border border-amber-500/40 text-white text-xs focus:outline-none"
+                        />
+                      </div>
+                      <div className="sm:col-span-2 flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEditSchedule(idx)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingScheduleIdx(null)}
+                          className="px-2.5 py-1.5 rounded-lg bg-neutral-800 text-neutral-400 hover:text-white text-xs"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* MODO VISTA NORMAL */
+                    <>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-400 flex items-center justify-center font-mono font-bold text-[11px] flex-shrink-0">
+                          {idx + 1}
+                        </div>
+                        <div className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono font-bold text-xs flex-shrink-0">
+                          {item.time} hs
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-white text-xs truncate">{item.title}</h4>
+                          {item.description && (
+                            <p className="text-[11px] text-neutral-400 truncate">{item.description}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 self-end sm:self-center">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => handleMoveScheduleItem(idx, 'up')}
+                          className="p-1.5 rounded-lg bg-neutral-900 text-neutral-400 hover:text-white disabled:opacity-30 disabled:hover:text-neutral-400 border border-neutral-800"
+                          title="Subir momento"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx === (formData.schedule?.length || 0) - 1}
+                          onClick={() => handleMoveScheduleItem(idx, 'down')}
+                          className="p-1.5 rounded-lg bg-neutral-900 text-neutral-400 hover:text-white disabled:opacity-30 disabled:hover:text-neutral-400 border border-neutral-800"
+                          title="Bajar momento"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditSchedule(idx)}
+                          className="p-1.5 rounded-lg bg-neutral-900 text-amber-400 hover:bg-neutral-800 border border-neutral-800"
+                          title="Editar este momento"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteScheduleItem(idx)}
+                          className="p-1.5 rounded-lg bg-neutral-900 text-red-400 hover:bg-red-950/40 border border-neutral-800"
+                          title="Eliminar este momento"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="p-4 rounded-2xl bg-neutral-950 border border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4">
+            <div className="text-neutral-400 text-[11px]">
+              Los cambios en el cronograma se sincronizan automáticamente con el servidor y la vista de tus invitados.
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleOpenLivePreview}
+                className="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold flex items-center gap-1.5 transition-all text-xs"
+              >
+                <Eye className="w-4 h-4 text-amber-400" />
+                <span>Ver Vista Previa</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('guests')}
+                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold flex items-center gap-1.5 transition-all text-xs shadow"
+              >
+                <span>Continuar a Invitados</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* TAB 3: CONTROL DE INVITADOS */}

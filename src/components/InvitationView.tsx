@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { ambientAudio } from '../lib/audioSynth';
-import { EventSettings, Guest, Plan, DesignTemplate } from '../types';
+import { EventSettings, Guest, Plan, DesignTemplate, isCeremonySupported } from '../types';
 import { compressImageFile } from '../lib/imageCompression';
 
 interface InvitationViewProps {
@@ -63,6 +63,11 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
   const plan = activeTemplate
     ? plans.find(p => p.id === activeTemplate.requiredPlan) || plans[0]
     : (plans.find(p => p.id === currentProject.planId) || plans[0]);
+
+  // Resolve effective event type and ceremony support
+  const effectiveEventType = activeTemplate?.eventType || currentProject.eventType;
+  const ceremonyEligible = isCeremonySupported(effectiveEventType);
+  const showCeremony = ceremonyEligible && settings.hasCeremony !== false;
 
   // Is this Plan Oro (has envelope animation and VIP features)
   const isPlanOro = (plan && plan.id === 'oro') || (activeTemplate && activeTemplate.requiredPlan === 'oro') || Boolean(plan?.hasEnvelopeAnimation);
@@ -128,9 +133,11 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
   useEffect(() => {
     const calculateTime = () => {
       const eventDateStr = settings.date;
-      const eventTimeStr = countdownTarget === 'party' 
-        ? (settings.partyTime || '13:00') 
-        : (settings.ceremonyTime || settings.time || '11:00');
+      const eventTimeStr = showCeremony
+        ? (countdownTarget === 'party' 
+            ? (settings.partyTime || '13:00') 
+            : (settings.ceremonyTime || settings.time || '11:00'))
+        : (settings.partyTime || settings.time || '21:30');
       
       const targetDate = new Date(`${eventDateStr}T${eventTimeStr}:00`);
       const now = new Date();
@@ -152,7 +159,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
     calculateTime();
     const interval = setInterval(calculateTime, 1000);
     return () => clearInterval(interval);
-  }, [settings.date, settings.time, settings.ceremonyTime, settings.partyTime, countdownTarget]);
+  }, [settings.date, settings.time, settings.ceremonyTime, settings.partyTime, countdownTarget, showCeremony]);
 
   // Open Envelope Animation with Audio Unlock
   const handleOpenEnvelope = () => {
@@ -202,7 +209,10 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
   };
 
   const handleDownloadCalendarIcs = () => {
-    const start = `${settings.date.replace(/-/g, '')}T${(settings.ceremonyTime || '11:00').replace(':', '')}00`;
+    const eventTimeStr = showCeremony
+      ? (settings.ceremonyTime || '11:00')
+      : (settings.partyTime || settings.time || '21:30');
+    const start = `${settings.date.replace(/-/g, '')}T${eventTimeStr.replace(':', '')}00`;
     const icsContent = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
@@ -527,25 +537,29 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
 
         {/* 2. CUENTA REGRESIVA (COUNTDOWN) */}
         <section className="bg-white/80 backdrop-blur-sm border border-amber-200/80 rounded-2xl p-5 shadow-sm text-center space-y-3">
-          <div className="flex items-center justify-center gap-2 text-xs font-montserrat font-semibold text-neutral-600">
-            <button
-              onClick={() => setCountdownTarget('ceremony')}
-              className={`px-3 py-1 rounded-full transition-colors ${countdownTarget === 'ceremony' ? 'bg-amber-500 text-white' : 'bg-neutral-100'}`}
-            >
-              Ceremonia
-            </button>
-            <button
-              onClick={() => setCountdownTarget('party')}
-              className={`px-3 py-1 rounded-full transition-colors ${countdownTarget === 'party' ? 'bg-amber-500 text-white' : 'bg-neutral-100'}`}
-            >
-              Festejo
-            </button>
-          </div>
+          {showCeremony && (
+            <div className="flex items-center justify-center gap-2 text-xs font-montserrat font-semibold text-neutral-600">
+              <button
+                onClick={() => setCountdownTarget('ceremony')}
+                className={`px-3 py-1 rounded-full transition-colors ${countdownTarget === 'ceremony' ? 'bg-amber-500 text-white shadow-sm' : 'bg-neutral-100 hover:bg-neutral-200'}`}
+              >
+                Ceremonia
+              </button>
+              <button
+                onClick={() => setCountdownTarget('party')}
+                className={`px-3 py-1 rounded-full transition-colors ${countdownTarget === 'party' ? 'bg-amber-500 text-white shadow-sm' : 'bg-neutral-100 hover:bg-neutral-200'}`}
+              >
+                Festejo
+              </button>
+            </div>
+          )}
 
           <p className="text-xs uppercase tracking-widest text-amber-800 font-cinzel font-bold">
             {timeLeft.days === 0 && timeLeft.hours === 0 && timeLeft.minutes === 0 
               ? '¡El evento ha comenzado!' 
-              : 'Faltan muy pocos días para compartir:'}
+              : showCeremony
+                ? (countdownTarget === 'ceremony' ? 'Cuenta regresiva para la Ceremonia:' : 'Cuenta regresiva para el Festejo:')
+                : 'Faltan muy pocos días para celebrar:'}
           </p>
 
           <div className="grid grid-cols-4 gap-2 text-center max-w-xs mx-auto font-sans-clean">
@@ -579,28 +593,94 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             <div className="flex items-start gap-3 bg-neutral-50 p-3 rounded-xl">
               <Calendar className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
               <div>
-                <div className="font-semibold text-neutral-900">Fecha</div>
+                <div className="font-semibold text-neutral-900">Fecha del Evento</div>
                 <div className="text-neutral-600">{settings.date}</div>
               </div>
             </div>
 
-            <div className="flex items-start gap-3 bg-neutral-50 p-3 rounded-xl">
-              <Clock className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
-              <div>
-                <div className="font-semibold text-neutral-900">Horarios</div>
-                <div className="text-neutral-600">
-                  Ceremonia: {settings.ceremonyTime || '11:00'} hs | Fiesta: {settings.partyTime || '13:00'} hs
+            {showCeremony ? (
+              <>
+                {/* Bloque Ceremonia */}
+                <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-950 text-xs">
+                      <Clock className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Ceremonia Religiosa / Civil</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-200/60 text-amber-900 text-[10px] font-mono font-bold">
+                      {settings.ceremonyTime || '11:00'} hs
+                    </span>
+                  </div>
+                  <div className="text-neutral-700 text-xs space-y-0.5 pl-5">
+                    <div className="font-semibold text-neutral-900">{settings.ceremonyLocationName || settings.locationName}</div>
+                    <div className="text-neutral-600">{settings.ceremonyAddress || settings.address}</div>
+                  </div>
+                  {(settings.ceremonyMapsUrl || settings.mapsUrl) && (
+                    <div className="pt-1 pl-5">
+                      <a
+                        href={settings.ceremonyMapsUrl || settings.mapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 hover:text-amber-950 underline"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Ver mapa de la Ceremonia</span>
+                      </a>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
 
-            <div className="flex items-start gap-3 bg-neutral-50 p-3 rounded-xl">
-              <MapPin className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
-              <div>
-                <div className="font-semibold text-neutral-900">{settings.locationName}</div>
-                <div className="text-neutral-600">{settings.address}</div>
-              </div>
-            </div>
+                {/* Bloque Fiesta */}
+                <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-bold text-neutral-900 text-xs">
+                      <MapPin className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Fiesta & Celebración</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-neutral-200/80 text-neutral-900 text-[10px] font-mono font-bold">
+                      {settings.partyTime || '13:00'} hs
+                    </span>
+                  </div>
+                  <div className="text-neutral-700 text-xs space-y-0.5 pl-5">
+                    <div className="font-semibold text-neutral-900">{settings.locationName}</div>
+                    <div className="text-neutral-600">{settings.address}</div>
+                  </div>
+                  {settings.mapsUrl && (
+                    <div className="pt-1 pl-5">
+                      <a
+                        href={settings.mapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 hover:text-amber-950 underline"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Ver mapa del Salón</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-start gap-3 bg-neutral-50 p-3 rounded-xl">
+                  <Clock className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-neutral-900">Horario de Inicio</div>
+                    <div className="text-neutral-600">
+                      {settings.partyTime || settings.time || '21:30'} hs
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 bg-neutral-50 p-3 rounded-xl">
+                  <MapPin className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-neutral-900">{settings.locationName}</div>
+                    <div className="text-neutral-600">{settings.address}</div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Location Actions */}
