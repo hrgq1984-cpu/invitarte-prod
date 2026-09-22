@@ -34,6 +34,40 @@ import {
   buildTemplateSamplePhotos 
 } from '../lib/templatePreviewHelper';
 
+// Helper to determine if a color is perceptually dark
+function isColorDark(colorStr?: string): boolean {
+  if (!colorStr) return false;
+  const hex = colorStr.replace('#', '').trim();
+  let r = 0, g = 0, b = 0;
+  if (hex.length === 3) {
+    r = parseInt(hex[0] + hex[0], 16);
+    g = parseInt(hex[1] + hex[1], 16);
+    b = parseInt(hex[2] + hex[2], 16);
+  } else if (hex.length >= 6) {
+    r = parseInt(hex.substring(0, 2), 16);
+    g = parseInt(hex.substring(2, 4), 16);
+    b = parseInt(hex.substring(4, 6), 16);
+  }
+  return (r * 299 + g * 587 + b * 114) / 1000 < 135;
+}
+
+// Convert hex to rgba
+function hexToRgba(hexStr: string, alpha: number): string {
+  if (!hexStr || !hexStr.startsWith('#')) return `rgba(212, 175, 55, ${alpha})`;
+  const hex = hexStr.replace('#', '').trim();
+  let r = 212, g = 175, b = 55;
+  if (hex.length === 3) {
+    r = parseInt(hex[0] + hex[0], 16);
+    g = parseInt(hex[1] + hex[1], 16);
+    b = parseInt(hex[2] + hex[2], 16);
+  } else if (hex.length >= 6) {
+    r = parseInt(hex.substring(0, 2), 16);
+    g = parseInt(hex.substring(2, 4), 16);
+    b = parseInt(hex.substring(4, 6), 16);
+  }
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 interface InvitationViewProps {
   guestToken?: string;
   isMockupFrame?: boolean;
@@ -52,6 +86,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
   const { 
     currentProject, 
     currentEventSettings, 
+    templates,
     plans, 
     guests, 
     blessings, 
@@ -71,6 +106,53 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
   const settings = customSettings 
     ? customSettings 
     : (activeTemplate ? buildTemplateSampleSettings(activeTemplate) : currentEventSettings);
+
+  // 1. Resolve effective active template
+  const currentTmpl = activeTemplate || templates.find(t => t.id === currentProject.templateId) || templates[0];
+
+  // 2. Palette resolution from settings or template
+  const primaryColor = settings.primaryColor || currentTmpl.palette.primary || '#d4af37';
+  const secondaryColor = settings.secondaryColor || currentTmpl.palette.secondary || '#faf8f5';
+  const accentColor = settings.accentColor || currentTmpl.palette.accent || '#2c2523';
+  const templateBg = currentTmpl.palette.background || secondaryColor;
+
+  // 3. Dark / Light theme detection
+  const isDark = isColorDark(templateBg) || isColorDark(secondaryColor);
+  const isPrimaryDark = isColorDark(primaryColor);
+  const primaryContrastText = isPrimaryDark ? '#ffffff' : '#111827';
+
+  // 4. Typography font class based on template
+  const fontChoice = settings.fontFamily || currentTmpl.fontFamily || 'serif';
+  const displayFontClass = fontChoice === 'script' 
+    ? 'font-script text-4xl sm:text-5xl font-normal' 
+    : fontChoice === 'cinzel' 
+    ? 'font-cinzel text-3xl sm:text-4xl tracking-wider font-bold' 
+    : fontChoice === 'sans' 
+    ? 'font-montserrat text-3xl sm:text-4xl tracking-tight font-extrabold uppercase' 
+    : 'font-serif-luxury text-3xl sm:text-4xl italic font-bold';
+
+  const headingFontClass = fontChoice === 'sans' 
+    ? 'font-montserrat' 
+    : fontChoice === 'cinzel' 
+    ? 'font-cinzel' 
+    : 'font-cinzel';
+
+  // Pre-calculated card and box styles
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: isDark ? 'rgba(25, 25, 35, 0.82)' : 'rgba(255, 255, 255, 0.88)',
+    borderColor: hexToRgba(primaryColor, isDark ? 0.35 : 0.25),
+    backdropFilter: 'blur(8px)',
+  };
+
+  const innerBoxStyle: React.CSSProperties = {
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : hexToRgba(primaryColor, 0.08),
+    borderColor: hexToRgba(primaryColor, isDark ? 0.25 : 0.2),
+  };
+
+  const countdownBoxStyle: React.CSSProperties = {
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : hexToRgba(primaryColor, 0.12),
+    borderColor: hexToRgba(primaryColor, isDark ? 0.3 : 0.22),
+  };
 
   // Resolve active plan dynamically based on activeTemplate if provided, or currentProject
   const plan = activeTemplate
@@ -354,7 +436,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
     return (
       <div 
         id="envelope-entry-screen"
-        className="w-full h-full min-h-[600px] flex flex-col items-center justify-center p-4 bg-neutral-950 text-neutral-100 relative overflow-hidden"
+        className="w-full h-full min-h-[600px] flex flex-col items-center justify-center p-4 text-neutral-100 relative overflow-hidden"
         style={{
           minHeight: isMockupFrame ? '100%' : '100vh',
           backgroundColor: '#0a0a0f'
@@ -362,35 +444,37 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
       >
         {/* Subtle background glow matching envelope color */}
         <div 
-          className="absolute inset-0 opacity-25 pointer-events-none"
+          className="absolute inset-0 opacity-30 pointer-events-none"
           style={{
-            background: `radial-gradient(circle at 50% 40%, ${settings.envelopeColor || '#c59b27'} 0%, transparent 70%)`
+            background: `radial-gradient(circle at 50% 40%, ${settings.envelopeColor || currentTmpl.envelopeColor || primaryColor} 0%, transparent 70%)`
           }}
         />
 
         <div className="w-full max-w-sm flex flex-col items-center text-center my-auto relative z-10 animate-in zoom-in-95 duration-500">
           
           <div 
-            className={`relative w-full aspect-[4/3] rounded-2xl shadow-2xl p-5 sm:p-6 flex flex-col items-center justify-center border-2 border-amber-400/50 transition-all duration-700 ${
+            className={`relative w-full aspect-[4/3] rounded-2xl shadow-2xl p-5 sm:p-6 flex flex-col items-center justify-center border-2 transition-all duration-700 ${
               isOpeningEnvelope ? 'scale-105 -translate-y-4 opacity-90' : 'hover:scale-[1.02]'
             }`}
             style={{
-              backgroundColor: settings.envelopeColor || '#c59b27',
-              backgroundImage: 'radial-gradient(circle at 50% 20%, rgba(255,255,255,0.25), transparent 70%)'
+              backgroundColor: settings.envelopeColor || currentTmpl.envelopeColor || primaryColor,
+              borderColor: hexToRgba('#ffffff', 0.4),
+              backgroundImage: 'radial-gradient(circle at 50% 20%, rgba(255,255,255,0.25), transparent 70%)',
+              boxShadow: `0 20px 40px ${hexToRgba(primaryColor, 0.4)}`
             }}
           >
             {/* Envelope flap lines */}
-            <div className="absolute top-0 left-0 right-0 h-1/2 border-b-2 border-amber-600/30 clip-triangle pointer-events-none" />
+            <div className="absolute top-0 left-0 right-0 h-1/2 border-b-2 border-white/20 clip-triangle pointer-events-none" />
 
             {/* Guest destination badge */}
-            <div className="bg-neutral-950/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-amber-300/40 text-amber-100 text-xs font-montserrat tracking-wide mb-3">
+            <div className="bg-neutral-950/60 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 text-white text-xs font-montserrat tracking-wide mb-3 shadow-sm">
               {guest ? `Para: ${guest.name}` : 'Especialmente para ti y tu familia'}
             </div>
 
-            <div className="text-white text-base font-cinzel font-bold tracking-wider mb-1 line-clamp-1">
+            <div className={`text-white text-base font-bold tracking-wider mb-1 line-clamp-1 ${headingFontClass}`}>
               {settings.title}
             </div>
-            <div className="text-amber-100 text-sm font-serif-luxury italic mb-4 line-clamp-1">
+            <div className="text-white/90 text-sm font-serif-luxury italic mb-4 line-clamp-1">
               {settings.honoreeName}
             </div>
 
@@ -399,13 +483,17 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
               id="btn-open-wax-seal"
               onClick={handleOpenEnvelope}
               disabled={isOpeningEnvelope}
-              className={`group relative w-16 h-16 rounded-full bg-gradient-to-tr from-amber-700 via-amber-600 to-yellow-400 border-2 border-yellow-200 shadow-xl flex items-center justify-center text-white transition-all transform active:scale-95 ${
+              className={`group relative w-16 h-16 rounded-full border-2 border-white/80 shadow-2xl flex items-center justify-center text-white transition-all transform active:scale-95 ${
                 isOpeningEnvelope ? 'animate-spin' : 'hover:scale-110 animate-pulse'
               }`}
+              style={{
+                backgroundColor: accentColor || primaryColor,
+                boxShadow: `0 0 25px ${hexToRgba(primaryColor, 0.75)}`
+              }}
               title="Toca para abrir la invitación y comenzar la música"
             >
-              <div className="w-12 h-12 rounded-full border border-yellow-300/40 flex items-center justify-center font-cinzel font-bold text-lg shadow-inner">
-                {settings.waxSealText || 'ST'}
+              <div className="w-12 h-12 rounded-full border border-white/40 flex items-center justify-center font-cinzel font-bold text-lg shadow-inner">
+                {settings.waxSealText || currentTmpl.waxSealSymbol || '⚜️'}
               </div>
             </button>
           </div>
@@ -416,7 +504,12 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
               id="btn-open-envelope-action"
               onClick={handleOpenEnvelope}
               disabled={isOpeningEnvelope}
-              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-neutral-950 font-bold text-xs shadow-lg shadow-amber-950/50 flex items-center justify-center gap-2 transition-transform active:scale-95 hover:opacity-95"
+              style={{
+                backgroundColor: primaryColor,
+                color: primaryContrastText,
+                boxShadow: `0 8px 24px ${hexToRgba(primaryColor, 0.45)}`
+              }}
+              className="w-full py-2.5 px-4 rounded-xl font-bold text-xs shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95 hover:opacity-95"
             >
               <Sparkles className="w-4 h-4" />
               <span>{isOpeningEnvelope ? 'Abriendo Sobre...' : 'Abrir Sobre con Música ✨'}</span>
@@ -425,7 +518,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             <button
               id="btn-skip-envelope"
               onClick={() => setEnvelopeOpened(true)}
-              className="w-full py-1.5 text-xs text-amber-200/80 hover:text-white transition-colors underline underline-offset-4"
+              className="w-full py-1.5 text-xs text-neutral-300 hover:text-white transition-colors underline underline-offset-4"
             >
               Ver invitación directamente (Saltar sobre) ⏩
             </button>
@@ -441,24 +534,35 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
 
   return (
     <div 
-      className="relative min-h-screen text-neutral-800 transition-colors overflow-x-hidden"
+      className="relative min-h-screen transition-colors overflow-x-hidden"
       style={{ 
-        backgroundColor: settings.secondaryColor || '#fdfbf7',
-        color: '#2d241e'
+        backgroundColor: templateBg,
+        color: isDark ? '#f8fafc' : '#2d241e'
       }}
     >
       {/* Floating Audio Controller Bar */}
       <div className="sticky top-2 z-40 max-w-sm mx-auto px-3">
-        <div className="bg-white/90 backdrop-blur-md border border-amber-200/80 shadow-md rounded-full px-3 py-1.5 flex items-center justify-between text-xs">
+        <div 
+          className="backdrop-blur-md shadow-md rounded-full px-3 py-1.5 flex items-center justify-between text-xs border"
+          style={{
+            backgroundColor: isDark ? 'rgba(25, 25, 35, 0.92)' : 'rgba(255, 255, 255, 0.92)',
+            borderColor: hexToRgba(primaryColor, 0.3),
+            color: isDark ? '#ffffff' : '#1e1b18'
+          }}
+        >
           <div className="flex items-center gap-2 overflow-hidden">
             <button
               onClick={handleToggleMusic}
-              className="w-7 h-7 rounded-full bg-amber-500/10 text-amber-800 flex items-center justify-center hover:bg-amber-500/20 transition-colors"
+              className="w-7 h-7 rounded-full flex items-center justify-center transition-opacity hover:opacity-85"
+              style={{
+                backgroundColor: hexToRgba(primaryColor, 0.18),
+                color: primaryColor
+              }}
               title={isPlayingAudio ? 'Pausar música' : 'Reproducir música'}
             >
-              <Music className={`w-3.5 h-3.5 ${isPlayingAudio ? 'animate-bounce text-amber-600' : ''}`} />
+              <Music className={`w-3.5 h-3.5 ${isPlayingAudio ? 'animate-bounce' : ''}`} />
             </button>
-            <div className="truncate text-[11px] font-medium text-amber-950">
+            <div className="truncate text-[11px] font-medium" style={{ color: isDark ? '#ffffff' : '#1e1b18' }}>
               {settings.musicTitle || 'Música de Fondo'}
             </div>
           </div>
@@ -466,7 +570,8 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleToggleMute}
-              className="p-1 text-neutral-600 hover:text-amber-800 transition-colors"
+              className="p-1 hover:opacity-80 transition-opacity"
+              style={{ color: isDark ? '#e2e8f0' : '#4b5563' }}
               title={isMuted ? 'Activar sonido' : 'Silenciar'}
             >
               {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
@@ -475,7 +580,12 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             {isPlanOro && (
               <button
                 onClick={() => setEnvelopeOpened(false)}
-                className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300/80 text-[10px] font-semibold hover:bg-amber-200 transition-colors"
+                className="px-2 py-0.5 rounded-full border text-[10px] font-semibold hover:opacity-80 transition-opacity"
+                style={{
+                  backgroundColor: hexToRgba(primaryColor, 0.15),
+                  color: primaryColor,
+                  borderColor: hexToRgba(primaryColor, 0.3)
+                }}
                 title="Volver a ver la apertura de sobre"
               >
                 ✉️ Sobre
@@ -485,7 +595,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             {plan.hasTvMode && onOpenTvMode && (
               <button
                 onClick={onOpenTvMode}
-                className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-semibold hover:bg-purple-100 transition-colors"
+                className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/40 text-[10px] font-semibold hover:bg-purple-500/30 transition-colors"
                 title="Abrir pantalla interactiva para TV"
               >
                 Modo TV
@@ -502,25 +612,44 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
         <section className="text-center space-y-4 pt-2">
           {/* Personalized Greeting Header */}
           {guest && (
-            <div className="inline-block bg-amber-100/70 border border-amber-300/60 px-3.5 py-1 rounded-full text-xs text-amber-900 font-montserrat font-medium tracking-wide shadow-sm">
+            <div 
+              className="inline-block px-3.5 py-1 rounded-full text-xs font-montserrat font-medium tracking-wide shadow-sm border"
+              style={{
+                backgroundColor: hexToRgba(primaryColor, isDark ? 0.2 : 0.12),
+                borderColor: hexToRgba(primaryColor, 0.35),
+                color: isDark ? '#ffffff' : primaryColor
+              }}
+            >
               Querido/a <span className="font-bold">{guest.name}</span> ({guest.relationship})
             </div>
           )}
 
           <div className="space-y-1">
-            <p className="text-xs uppercase tracking-widest text-amber-800 font-cinzel font-semibold">
+            <p 
+              className={`text-xs uppercase tracking-widest font-semibold ${headingFontClass}`}
+              style={{ color: primaryColor }}
+            >
               {settings.title}
             </p>
-            <h1 className="text-3xl sm:text-4xl font-serif-luxury font-bold text-neutral-900 leading-tight">
+            <h1 
+              className={`${displayFontClass} leading-tight drop-shadow-sm`}
+              style={{ color: isDark ? '#ffffff' : '#111827' }}
+            >
               {settings.honoreeName}
             </h1>
-            <p className="text-sm italic text-neutral-600 font-serif-luxury max-w-xs mx-auto">
+            <p 
+              className="text-sm italic max-w-xs mx-auto"
+              style={{ color: isDark ? '#cbd5e1' : '#4b5563' }}
+            >
               "{settings.initialPhrase}"
             </p>
           </div>
 
           {/* Cover Photo */}
-          <div className="relative rounded-2xl overflow-hidden shadow-xl border-4 border-white aspect-[3/4] max-w-xs mx-auto">
+          <div 
+            className="relative rounded-2xl overflow-hidden shadow-xl aspect-[3/4] max-w-xs mx-auto border-4"
+            style={{ borderColor: isDark ? 'rgba(255,255,255,0.15)' : '#ffffff' }}
+          >
             <img 
               src={settings.coverPhotoUrl} 
               alt={settings.honoreeName}
@@ -542,7 +671,12 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             <button
               id="btn-rsvp-open-modal"
               onClick={() => setShowRsvpModal(true)}
-              className="px-5 py-2.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-xs font-montserrat font-semibold tracking-wider uppercase shadow-md shadow-amber-800/20 flex items-center gap-1.5 transition-all transform active:scale-95"
+              style={{
+                backgroundColor: primaryColor,
+                color: primaryContrastText,
+                boxShadow: `0 4px 14px ${hexToRgba(primaryColor, 0.4)}`
+              }}
+              className="px-5 py-2.5 rounded-full text-xs font-montserrat font-semibold tracking-wider uppercase shadow-md flex items-center gap-1.5 transition-all transform active:scale-95"
             >
               <CheckCircle className="w-4 h-4" />
               Confirmar Asistencia
@@ -550,34 +684,47 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
 
             <button
               onClick={() => setShowBankModal(true)}
-              className="px-4 py-2.5 rounded-full bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-300 text-xs font-montserrat font-semibold tracking-wider uppercase shadow-sm flex items-center gap-1.5 transition-colors"
+              style={{
+                backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#ffffff',
+                color: isDark ? '#ffffff' : '#1f2937',
+                borderColor: hexToRgba(primaryColor, 0.35)
+              }}
+              className="px-4 py-2.5 rounded-full border text-xs font-montserrat font-semibold tracking-wider uppercase shadow-sm flex items-center gap-1.5 transition-colors hover:opacity-90"
             >
-              <Gift className="w-4 h-4 text-amber-700" />
+              <Gift className="w-4 h-4" style={{ color: primaryColor }} />
               Regalo / Aporte
             </button>
           </div>
         </section>
 
         {/* 2. CUENTA REGRESIVA (COUNTDOWN) */}
-        <section className="bg-white/80 backdrop-blur-sm border border-amber-200/80 rounded-2xl p-5 shadow-sm text-center space-y-3">
+        <section 
+          style={cardStyle}
+          className="rounded-2xl p-5 shadow-sm text-center space-y-3 border"
+        >
           {showCeremony && (
-            <div className="flex items-center justify-center gap-2 text-xs font-montserrat font-semibold text-neutral-600">
+            <div className="flex items-center justify-center gap-2 text-xs font-montserrat font-semibold text-neutral-500">
               <button
                 onClick={() => setCountdownTarget('ceremony')}
-                className={`px-3 py-1 rounded-full transition-colors ${countdownTarget === 'ceremony' ? 'bg-amber-500 text-white shadow-sm' : 'bg-neutral-100 hover:bg-neutral-200'}`}
+                style={countdownTarget === 'ceremony' ? { backgroundColor: primaryColor, color: primaryContrastText } : {}}
+                className={`px-3 py-1 rounded-full transition-colors ${countdownTarget === 'ceremony' ? 'shadow-sm' : isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 hover:bg-neutral-200'}`}
               >
                 Ceremonia
               </button>
               <button
                 onClick={() => setCountdownTarget('party')}
-                className={`px-3 py-1 rounded-full transition-colors ${countdownTarget === 'party' ? 'bg-amber-500 text-white shadow-sm' : 'bg-neutral-100 hover:bg-neutral-200'}`}
+                style={countdownTarget === 'party' ? { backgroundColor: primaryColor, color: primaryContrastText } : {}}
+                className={`px-3 py-1 rounded-full transition-colors ${countdownTarget === 'party' ? 'shadow-sm' : isDark ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 hover:bg-neutral-200'}`}
               >
                 Festejo
               </button>
             </div>
           )}
 
-          <p className="text-xs uppercase tracking-widest text-amber-800 font-cinzel font-bold">
+          <p 
+            className={`text-xs uppercase tracking-widest font-bold ${headingFontClass}`}
+            style={{ color: primaryColor }}
+          >
             {timeLeft.days === 0 && timeLeft.hours === 0 && timeLeft.minutes === 0 
               ? '¡El evento ha comenzado!' 
               : showCeremony
@@ -586,57 +733,74 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
           </p>
 
           <div className="grid grid-cols-4 gap-2 text-center max-w-xs mx-auto font-sans-clean">
-            <div className="bg-amber-50/80 border border-amber-200/60 rounded-xl p-2">
-              <div className="text-xl font-bold text-amber-900">{timeLeft.days}</div>
-              <div className="text-[10px] text-amber-700 uppercase">Días</div>
+            <div style={countdownBoxStyle} className="rounded-xl p-2 border">
+              <div className="text-xl font-bold" style={{ color: primaryColor }}>{timeLeft.days}</div>
+              <div className="text-[10px] uppercase font-semibold" style={{ color: isDark ? '#94a3b8' : primaryColor }}>Días</div>
             </div>
-            <div className="bg-amber-50/80 border border-amber-200/60 rounded-xl p-2">
-              <div className="text-xl font-bold text-amber-900">{timeLeft.hours}</div>
-              <div className="text-[10px] text-amber-700 uppercase">Hs</div>
+            <div style={countdownBoxStyle} className="rounded-xl p-2 border">
+              <div className="text-xl font-bold" style={{ color: primaryColor }}>{timeLeft.hours}</div>
+              <div className="text-[10px] uppercase font-semibold" style={{ color: isDark ? '#94a3b8' : primaryColor }}>Hs</div>
             </div>
-            <div className="bg-amber-50/80 border border-amber-200/60 rounded-xl p-2">
-              <div className="text-xl font-bold text-amber-900">{timeLeft.minutes}</div>
-              <div className="text-[10px] text-amber-700 uppercase">Min</div>
+            <div style={countdownBoxStyle} className="rounded-xl p-2 border">
+              <div className="text-xl font-bold" style={{ color: primaryColor }}>{timeLeft.minutes}</div>
+              <div className="text-[10px] uppercase font-semibold" style={{ color: isDark ? '#94a3b8' : primaryColor }}>Min</div>
             </div>
-            <div className="bg-amber-50/80 border border-amber-200/60 rounded-xl p-2">
-              <div className="text-xl font-bold text-amber-900">{timeLeft.seconds}</div>
-              <div className="text-[10px] text-amber-700 uppercase">Seg</div>
+            <div style={countdownBoxStyle} className="rounded-xl p-2 border">
+              <div className="text-xl font-bold" style={{ color: primaryColor }}>{timeLeft.seconds}</div>
+              <div className="text-[10px] uppercase font-semibold" style={{ color: isDark ? '#94a3b8' : primaryColor }}>Seg</div>
             </div>
           </div>
         </section>
 
         {/* 3. FECHA, HORA, LUGAR & MAPA */}
-        <section className="bg-white/80 backdrop-blur-sm border border-amber-200/80 rounded-2xl p-5 shadow-sm space-y-4">
+        <section 
+          style={cardStyle}
+          className="rounded-2xl p-5 shadow-sm space-y-4 border"
+        >
           <div className="text-center space-y-1">
-            <h2 className="text-lg font-cinzel font-bold text-neutral-900">Cuándo & Dónde</h2>
-            <div className="w-12 h-0.5 bg-amber-500 mx-auto" />
+            <h2 
+              className={`text-lg font-bold ${headingFontClass}`}
+              style={{ color: isDark ? '#ffffff' : '#111827' }}
+            >
+              Cuándo & Dónde
+            </h2>
+            <div className="w-12 h-0.5 mx-auto" style={{ backgroundColor: primaryColor }} />
           </div>
 
           <div className="space-y-3 font-sans-clean text-xs">
-            <div className="flex items-start gap-3 bg-neutral-50 p-3 rounded-xl">
-              <Calendar className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
+            <div 
+              style={innerBoxStyle}
+              className="flex items-start gap-3 p-3 rounded-xl border"
+            >
+              <Calendar className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: primaryColor }} />
               <div>
-                <div className="font-semibold text-neutral-900">Fecha del Evento</div>
-                <div className="text-neutral-600">{settings.date}</div>
+                <div className="font-semibold" style={{ color: isDark ? '#ffffff' : '#111827' }}>Fecha del Evento</div>
+                <div style={{ color: isDark ? '#cbd5e1' : '#4b5563' }}>{settings.date}</div>
               </div>
             </div>
 
             {showCeremony ? (
               <>
                 {/* Bloque Ceremonia */}
-                <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
+                <div style={innerBoxStyle} className="p-3.5 rounded-xl border space-y-2">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 font-bold text-amber-950 text-xs">
-                      <Clock className="w-3.5 h-3.5 text-amber-700" />
+                    <div className="flex items-center gap-1.5 font-bold text-xs" style={{ color: isDark ? '#ffffff' : '#111827' }}>
+                      <Clock className="w-3.5 h-3.5" style={{ color: primaryColor }} />
                       <span>Ceremonia Religiosa / Civil</span>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full bg-amber-200/60 text-amber-900 text-[10px] font-mono font-bold">
+                    <span 
+                      className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold"
+                      style={{
+                        backgroundColor: hexToRgba(primaryColor, 0.2),
+                        color: isDark ? '#ffffff' : primaryColor
+                      }}
+                    >
                       {settings.ceremonyTime || '11:00'} hs
                     </span>
                   </div>
-                  <div className="text-neutral-700 text-xs space-y-0.5 pl-5">
-                    <div className="font-semibold text-neutral-900">{settings.ceremonyLocationName || settings.locationName}</div>
-                    <div className="text-neutral-600">{settings.ceremonyAddress || settings.address}</div>
+                  <div className="text-xs space-y-0.5 pl-5">
+                    <div className="font-semibold" style={{ color: isDark ? '#ffffff' : '#111827' }}>{settings.ceremonyLocationName || settings.locationName}</div>
+                    <div style={{ color: isDark ? '#cbd5e1' : '#4b5563' }}>{settings.ceremonyAddress || settings.address}</div>
                   </div>
                   {(settings.ceremonyMapsUrl || settings.mapsUrl) && (
                     <div className="pt-1 pl-5">
@@ -644,7 +808,8 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
                         href={settings.ceremonyMapsUrl || settings.mapsUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 hover:text-amber-950 underline"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold underline"
+                        style={{ color: primaryColor }}
                       >
                         <ExternalLink className="w-3 h-3" />
                         <span>Ver mapa de la Ceremonia</span>
@@ -654,19 +819,25 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
                 </div>
 
                 {/* Bloque Fiesta */}
-                <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200/80 space-y-2">
+                <div style={innerBoxStyle} className="p-3.5 rounded-xl border space-y-2">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 font-bold text-neutral-900 text-xs">
-                      <MapPin className="w-3.5 h-3.5 text-amber-700" />
+                    <div className="flex items-center gap-1.5 font-bold text-xs" style={{ color: isDark ? '#ffffff' : '#111827' }}>
+                      <MapPin className="w-3.5 h-3.5" style={{ color: primaryColor }} />
                       <span>Fiesta & Celebración</span>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full bg-neutral-200/80 text-neutral-900 text-[10px] font-mono font-bold">
+                    <span 
+                      className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold"
+                      style={{
+                        backgroundColor: hexToRgba(primaryColor, 0.2),
+                        color: isDark ? '#ffffff' : primaryColor
+                      }}
+                    >
                       {settings.partyTime || '13:00'} hs
                     </span>
                   </div>
-                  <div className="text-neutral-700 text-xs space-y-0.5 pl-5">
-                    <div className="font-semibold text-neutral-900">{settings.locationName}</div>
-                    <div className="text-neutral-600">{settings.address}</div>
+                  <div className="text-xs space-y-0.5 pl-5">
+                    <div className="font-semibold" style={{ color: isDark ? '#ffffff' : '#111827' }}>{settings.locationName}</div>
+                    <div style={{ color: isDark ? '#cbd5e1' : '#4b5563' }}>{settings.address}</div>
                   </div>
                   {settings.mapsUrl && (
                     <div className="pt-1 pl-5">
@@ -674,7 +845,8 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
                         href={settings.mapsUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 hover:text-amber-950 underline"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold underline"
+                        style={{ color: primaryColor }}
                       >
                         <ExternalLink className="w-3 h-3" />
                         <span>Ver mapa del Salón</span>
@@ -685,21 +857,21 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
               </>
             ) : (
               <>
-                <div className="flex items-start gap-3 bg-neutral-50 p-3 rounded-xl">
-                  <Clock className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
+                <div style={innerBoxStyle} className="flex items-start gap-3 p-3 rounded-xl border">
+                  <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: primaryColor }} />
                   <div>
-                    <div className="font-semibold text-neutral-900">Horario de Inicio</div>
-                    <div className="text-neutral-600">
+                    <div className="font-semibold" style={{ color: isDark ? '#ffffff' : '#111827' }}>Horario de Inicio</div>
+                    <div style={{ color: isDark ? '#cbd5e1' : '#4b5563' }}>
                       {settings.partyTime || settings.time || '21:30'} hs
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 bg-neutral-50 p-3 rounded-xl">
-                  <MapPin className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
+                <div style={innerBoxStyle} className="flex items-start gap-3 p-3 rounded-xl border">
+                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: primaryColor }} />
                   <div>
-                    <div className="font-semibold text-neutral-900">{settings.locationName}</div>
-                    <div className="text-neutral-600">{settings.address}</div>
+                    <div className="font-semibold" style={{ color: isDark ? '#ffffff' : '#111827' }}>{settings.locationName}</div>
+                    <div style={{ color: isDark ? '#cbd5e1' : '#4b5563' }}>{settings.address}</div>
                   </div>
                 </div>
               </>
@@ -712,7 +884,12 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
               href={settings.mapsUrl}
               target="_blank"
               rel="noreferrer"
-              className="px-3 py-2 rounded-xl bg-amber-50 text-amber-900 border border-amber-200 font-semibold flex items-center justify-center gap-1.5 hover:bg-amber-100 transition-colors"
+              style={{
+                backgroundColor: hexToRgba(primaryColor, 0.12),
+                color: isDark ? '#ffffff' : primaryColor,
+                borderColor: hexToRgba(primaryColor, 0.3)
+              }}
+              className="px-3 py-2 rounded-xl border font-semibold flex items-center justify-center gap-1.5 hover:opacity-85 transition-opacity"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               Ver en Maps
@@ -720,7 +897,12 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
 
             <button
               onClick={() => handleCopy(settings.address, 'Dirección')}
-              className="px-3 py-2 rounded-xl bg-neutral-50 text-neutral-800 border border-neutral-200 font-semibold flex items-center justify-center gap-1.5 hover:bg-neutral-100 transition-colors"
+              style={{
+                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#ffffff',
+                color: isDark ? '#ffffff' : '#1f2937',
+                borderColor: hexToRgba(primaryColor, 0.25)
+              }}
+              className="px-3 py-2 rounded-xl border font-semibold flex items-center justify-center gap-1.5 hover:opacity-85 transition-opacity"
             >
               <Copy className="w-3.5 h-3.5" />
               {copiedText === 'Dirección' ? '¡Copiado!' : 'Copiar Lugar'}
@@ -728,7 +910,12 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
 
             <button
               onClick={handleDownloadCalendarIcs}
-              className="px-3 py-2 rounded-xl bg-neutral-50 text-neutral-800 border border-neutral-200 font-semibold flex items-center justify-center gap-1.5 hover:bg-neutral-100 transition-colors"
+              style={{
+                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#ffffff',
+                color: isDark ? '#ffffff' : '#1f2937',
+                borderColor: hexToRgba(primaryColor, 0.25)
+              }}
+              className="px-3 py-2 rounded-xl border font-semibold flex items-center justify-center gap-1.5 hover:opacity-85 transition-opacity"
             >
               <Download className="w-3.5 h-3.5" />
               Agendar
@@ -738,20 +925,43 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
 
         {/* 4. ITINERARIO DEL EVENTO */}
         {settings.schedule && settings.schedule.length > 0 && (
-          <section className="bg-white/80 backdrop-blur-sm border border-amber-200/80 rounded-2xl p-5 shadow-sm space-y-4">
+          <section 
+            style={cardStyle}
+            className="rounded-2xl p-5 shadow-sm space-y-4 border"
+          >
             <div className="text-center space-y-1">
-              <h2 className="text-lg font-cinzel font-bold text-neutral-900">Itinerario del Día</h2>
-              <div className="w-12 h-0.5 bg-amber-500 mx-auto" />
+              <h2 
+                className={`text-lg font-bold ${headingFontClass}`}
+                style={{ color: isDark ? '#ffffff' : '#111827' }}
+              >
+                Itinerario del Día
+              </h2>
+              <div className="w-12 h-0.5 mx-auto" style={{ backgroundColor: primaryColor }} />
             </div>
 
-            <div className="relative pl-6 space-y-5 border-l-2 border-amber-300 font-sans-clean text-xs">
+            <div 
+              className="relative pl-6 space-y-5 border-l-2 font-sans-clean text-xs"
+              style={{ borderColor: hexToRgba(primaryColor, 0.4) }}
+            >
               {settings.schedule.map((item, idx) => (
                 <div key={idx} className="relative group">
                   {/* Dot */}
-                  <div className="absolute -left-[31px] top-0.5 w-3.5 h-3.5 rounded-full bg-amber-500 border-2 border-white shadow" />
-                  <div className="font-bold text-amber-800 text-[11px] font-mono tracking-wider">{item.time}</div>
-                  <div className="font-semibold text-neutral-900 text-sm font-serif-luxury">{item.title}</div>
-                  <div className="text-neutral-600 text-xs">{item.description}</div>
+                  <div 
+                    className="absolute -left-[31px] top-0.5 w-3.5 h-3.5 rounded-full border-2 shadow"
+                    style={{
+                      backgroundColor: primaryColor,
+                      borderColor: isDark ? '#0d0d14' : '#ffffff'
+                    }}
+                  />
+                  <div className="font-bold text-[11px] font-mono tracking-wider" style={{ color: primaryColor }}>
+                    {item.time}
+                  </div>
+                  <div className="font-semibold text-sm font-serif-luxury" style={{ color: isDark ? '#ffffff' : '#111827' }}>
+                    {item.title}
+                  </div>
+                  <div style={{ color: isDark ? '#cbd5e1' : '#4b5563' }}>
+                    {item.description}
+                  </div>
                 </div>
               ))}
             </div>
@@ -759,14 +969,22 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
         )}
 
         {/* 5. CÓDIGO DE VESTIMENTA & RECOMENDACIONES */}
-        <section className="bg-white/80 backdrop-blur-sm border border-amber-200/80 rounded-2xl p-5 shadow-sm text-center space-y-3">
-          <Shirt className="w-6 h-6 text-amber-700 mx-auto" />
-          <h2 className="text-lg font-cinzel font-bold text-neutral-900">Código de Vestimenta</h2>
-          <p className="text-amber-900 font-bold text-sm">
+        <section 
+          style={cardStyle}
+          className="rounded-2xl p-5 shadow-sm text-center space-y-3 border"
+        >
+          <Shirt className="w-6 h-6 mx-auto" style={{ color: primaryColor }} />
+          <h2 
+            className={`text-lg font-bold ${headingFontClass}`}
+            style={{ color: isDark ? '#ffffff' : '#111827' }}
+          >
+            Código de Vestimenta
+          </h2>
+          <p className="font-bold text-sm" style={{ color: primaryColor }}>
             {settings.dressCode || 'Elegante'}
           </p>
           {settings.dressCodeNotes && (
-            <p className="text-xs text-neutral-600 font-sans-clean max-w-xs mx-auto">
+            <p className="text-xs font-sans-clean max-w-xs mx-auto" style={{ color: isDark ? '#cbd5e1' : '#4b5563' }}>
               {settings.dressCodeNotes}
             </p>
           )}
@@ -774,20 +992,29 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
 
         {/* 6. CARRUSEL DE FOTOS (Available in Plan Plata & Oro) */}
         {plan.maxInvitationPhotos > 0 && carouselImages.length > 0 && (
-          <section className="bg-white/80 backdrop-blur-sm border border-amber-200/80 rounded-2xl p-5 shadow-sm space-y-3 text-center">
+          <section 
+            style={cardStyle}
+            className="rounded-2xl p-5 shadow-sm space-y-3 text-center border"
+          >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-cinzel font-bold text-neutral-900">Galería de Recuerdos</h2>
+              <h2 
+                className={`text-lg font-bold ${headingFontClass}`}
+                style={{ color: isDark ? '#ffffff' : '#111827' }}
+              >
+                Galería de Recuerdos
+              </h2>
               {plan.hasEnvelopeAnimation && (
                 <button
                   onClick={() => setWatermarkEnabled(!watermarkEnabled)}
-                  className="text-[10px] text-neutral-500 hover:text-amber-800 underline font-sans"
+                  className="text-[10px] underline font-sans"
+                  style={{ color: isDark ? '#94a3b8' : '#6b7280' }}
                 >
                   {watermarkEnabled ? 'Ocultar marca de agua' : 'Marca de agua disuasoria'}
                 </button>
               )}
             </div>
 
-            <div className="relative rounded-xl overflow-hidden aspect-[4/3] bg-neutral-100 shadow-inner">
+            <div className="relative rounded-xl overflow-hidden aspect-[4/3] bg-neutral-900 shadow-inner">
               <img
                 src={carouselImages[activePhotoIdx]}
                 alt={`Recuerdo ${activePhotoIdx + 1}`}
@@ -807,13 +1034,13 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
                 <>
                   <button
                     onClick={() => setActivePhotoIdx((prev) => (prev === 0 ? carouselImages.length - 1 : prev - 1))}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => setActivePhotoIdx((prev) => (prev === carouselImages.length - 1 ? 0 : prev + 1))}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
@@ -828,8 +1055,9 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
                   <button
                     key={i}
                     onClick={() => setActivePhotoIdx(i)}
+                    style={activePhotoIdx === i ? { borderColor: primaryColor } : {}}
                     className={`w-10 h-10 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 ${
-                      activePhotoIdx === i ? 'border-amber-600 scale-105' : 'border-transparent opacity-60'
+                      activePhotoIdx === i ? 'scale-105' : 'border-transparent opacity-60'
                     }`}
                   >
                     <img src={img} alt="" className="w-full h-full object-cover" />
@@ -842,11 +1070,19 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
 
         {/* 7. LIBRO DE BUENOS DESEOS (Plan Plata & Oro) */}
         {plan.hasGuestbook && (
-          <section className="bg-white/80 backdrop-blur-sm border border-amber-200/80 rounded-2xl p-5 shadow-sm space-y-4">
+          <section 
+            style={cardStyle}
+            className="rounded-2xl p-5 shadow-sm space-y-4 border"
+          >
             <div className="text-center space-y-1">
-              <MessageSquareHeart className="w-6 h-6 text-amber-700 mx-auto" />
-              <h2 className="text-lg font-cinzel font-bold text-neutral-900">Muro de Buenos Deseos</h2>
-              <p className="text-xs text-neutral-600 font-sans-clean">
+              <MessageSquareHeart className="w-6 h-6 mx-auto" style={{ color: primaryColor }} />
+              <h2 
+                className={`text-lg font-bold ${headingFontClass}`}
+                style={{ color: isDark ? '#ffffff' : '#111827' }}
+              >
+                Muro de Buenos Deseos
+              </h2>
+              <p className="text-xs font-sans-clean" style={{ color: isDark ? '#cbd5e1' : '#4b5563' }}>
                 Deja tus palabras de bendición y cariño para el homenajeado:
               </p>
             </div>
@@ -859,7 +1095,12 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
                 onChange={(e) => setBlessingAuthor(e.target.value)}
                 placeholder="Tu Nombre o Familia..."
                 required
-                className="w-full px-3 py-2 rounded-xl border border-neutral-300 focus:outline-none focus:border-amber-500 bg-white"
+                style={{
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#ffffff',
+                  color: isDark ? '#ffffff' : '#111827',
+                  borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#d1d5db'
+                }}
+                className="w-full px-3 py-2 rounded-xl border focus:outline-none"
               />
               <textarea
                 value={blessingMessage}
@@ -867,11 +1108,21 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
                 placeholder="Escribe tu mensaje con todo tu cariño..."
                 rows={3}
                 required
-                className="w-full px-3 py-2 rounded-xl border border-neutral-300 focus:outline-none focus:border-amber-500 bg-white resize-none"
+                style={{
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#ffffff',
+                  color: isDark ? '#ffffff' : '#111827',
+                  borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#d1d5db'
+                }}
+                className="w-full px-3 py-2 rounded-xl border focus:outline-none resize-none"
               />
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                style={{
+                  backgroundColor: primaryColor,
+                  color: primaryContrastText,
+                  boxShadow: `0 4px 12px ${hexToRgba(primaryColor, 0.35)}`
+                }}
+                className="w-full py-2.5 rounded-xl font-semibold flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
               >
                 <Send className="w-3.5 h-3.5" />
                 Publicar Mensaje
@@ -887,14 +1138,18 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             {/* List of wishes */}
             <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
               {effectiveBlessings.filter(b => b.status === 'approved').map(b => (
-                <div key={b.id} className="p-3 rounded-xl bg-amber-50/60 border border-amber-200/50 space-y-1">
+                <div 
+                  key={b.id} 
+                  style={innerBoxStyle}
+                  className="p-3 rounded-xl border space-y-1"
+                >
                   <div className="flex items-center justify-between text-[11px] font-sans-clean">
-                    <span className="font-bold text-amber-950">{b.author}</span>
-                    <span className="text-neutral-400 text-[10px]">
+                    <span className="font-bold" style={{ color: primaryColor }}>{b.author}</span>
+                    <span className="text-[10px]" style={{ color: isDark ? '#94a3b8' : '#9ca3af' }}>
                       {new Date(b.createdAt).toLocaleDateString()}
                     </span>
                   </div>
-                  <p className="text-xs text-neutral-700 italic font-serif-luxury">
+                  <p className="text-xs italic font-serif-luxury" style={{ color: isDark ? '#e2e8f0' : '#374151' }}>
                     "{b.message}"
                   </p>
                 </div>
@@ -905,11 +1160,19 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
 
         {/* 8. FOTOS EN VIVO DEL EVENTO (Plan Oro) */}
         {plan.maxEventPhotos > 0 && (
-          <section className="bg-white/80 backdrop-blur-sm border border-amber-200/80 rounded-2xl p-5 shadow-sm space-y-4">
+          <section 
+            style={cardStyle}
+            className="rounded-2xl p-5 shadow-sm space-y-4 border"
+          >
             <div className="text-center space-y-1">
-              <Camera className="w-6 h-6 text-purple-700 mx-auto" />
-              <h2 className="text-lg font-cinzel font-bold text-neutral-900">Fotos en Vivo del Evento</h2>
-              <p className="text-xs text-neutral-600 font-sans-clean">
+              <Camera className="w-6 h-6 mx-auto" style={{ color: primaryColor }} />
+              <h2 
+                className={`text-lg font-bold ${headingFontClass}`}
+                style={{ color: isDark ? '#ffffff' : '#111827' }}
+              >
+                Fotos en Vivo del Evento
+              </h2>
+              <p className="text-xs font-sans-clean" style={{ color: isDark ? '#cbd5e1' : '#4b5563' }}>
                 ¡Sube tus fotos desde el celular durante la fiesta! Se proyectarán en vivo en la pantalla de TV.
               </p>
             </div>
@@ -920,7 +1183,12 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
                 value={uploadAuthor}
                 onChange={(e) => setUploadAuthor(e.target.value)}
                 placeholder="Nombre de quien saca la foto..."
-                className="w-full px-3 py-2 rounded-xl border border-neutral-300 focus:outline-none focus:border-purple-500 bg-white"
+                style={{
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#ffffff',
+                  color: isDark ? '#ffffff' : '#111827',
+                  borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#d1d5db'
+                }}
+                className="w-full px-3 py-2 rounded-xl border focus:outline-none"
               />
 
               <input
@@ -936,13 +1204,18 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingPhoto}
-                className="w-full py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                style={{
+                  backgroundColor: primaryColor,
+                  color: primaryContrastText,
+                  boxShadow: `0 4px 12px ${hexToRgba(primaryColor, 0.35)}`
+                }}
+                className="w-full py-2.5 rounded-xl font-semibold flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
               >
                 <Camera className="w-4 h-4" />
                 {uploadingPhoto ? 'Comprimiendo y Subiendo...' : '📸 Tomar o Subir Foto'}
               </button>
 
-              <p className="text-[10px] text-neutral-500 text-center">
+              <p className="text-[10px] text-center" style={{ color: isDark ? '#94a3b8' : '#6b7280' }}>
                 Disponible temporalmente. Se respaldará en Google Drive durante 10 días posteriores al evento.
               </p>
             </div>
@@ -950,7 +1223,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             {/* Live photos stream */}
             <div className="grid grid-cols-3 gap-2">
               {effectivePhotos.filter(p => p.source === 'event' && p.status === 'approved').slice(0, 6).map(p => (
-                <div key={p.id} className="relative rounded-lg overflow-hidden aspect-square border border-neutral-200">
+                <div key={p.id} className="relative rounded-lg overflow-hidden aspect-square border" style={{ borderColor: hexToRgba(primaryColor, 0.3) }}>
                   <img src={p.url} alt="" className="w-full h-full object-cover" />
                   <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] px-1 py-0.5 truncate text-center">
                     {p.author || 'Invitado'}
@@ -962,12 +1235,12 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
         )}
 
         {/* 9. FOOTER & CIERRE */}
-        <footer className="text-center space-y-4 pt-6 text-xs text-neutral-600 font-sans-clean">
-          <p className="font-serif-luxury italic text-sm text-neutral-800">
+        <footer className="text-center space-y-4 pt-6 text-xs font-sans-clean" style={{ color: isDark ? '#94a3b8' : '#6b7280' }}>
+          <p className="font-serif-luxury italic text-sm" style={{ color: isDark ? '#f1f5f9' : '#1f2937' }}>
             ¡Gracias por formar parte de este día tan especial e inolvidable!
           </p>
 
-          <div className="flex items-center justify-center gap-4 text-amber-800 font-medium">
+          <div className="flex items-center justify-center gap-4 font-medium" style={{ color: primaryColor }}>
             <button
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               className="hover:underline flex items-center gap-1"
@@ -983,7 +1256,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
             </button>
           </div>
 
-          <p className="text-[10px] text-neutral-400">
+          <p className="text-[10px]" style={{ color: isDark ? '#64748b' : '#9ca3af' }}>
             Invitación Digital interactiva creada con TuInvitacionDigital • Respaldo privado y seguro
           </p>
         </footer>
