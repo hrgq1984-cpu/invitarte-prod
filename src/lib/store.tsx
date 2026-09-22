@@ -5,7 +5,9 @@ import {
   setDoc, 
   deleteDoc, 
   updateDoc, 
-  onSnapshot 
+  onSnapshot,
+  query,
+  where
 } from 'firebase/firestore';
 import { db, cleanForFirestore } from './firebase';
 import { getFirebaseAuth } from './firebase';
@@ -589,10 +591,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Real-time Cloud Synchronization with Firestore across all terminals & devices
   useEffect(() => {
-    if (!db) return;
+    if (!db || currentUser.role === 'guest') return;
+
+    const isAdminUser = currentUser.role === 'admin';
+    const hasAuthorizedSelectedProject = isAdminUser || projects.some(project =>
+      project.id === selectedProjectId && project.clientEmail.toLowerCase() === currentUser.email.toLowerCase()
+    );
+    const projectsQuery = isAdminUser
+      ? collection(db, 'projects')
+      : query(collection(db, 'projects'), where('clientEmail', '==', currentUser.email));
+    const projectScopedQuery = (collectionName: string) => isAdminUser
+      ? collection(db, collectionName)
+      : query(collection(db, collectionName), where('projectId', '==', selectedProjectId));
 
     // 1. Synchronize Projects across devices
-    const unsubProjects = onSnapshot(collection(db, 'projects'), (snapshot) => {
+    const unsubProjects = onSnapshot(projectsQuery, (snapshot) => {
       const deletedIds = getDeletedIds();
       const remoteProjects: Project[] = [];
       snapshot.forEach(docSnap => {
@@ -623,7 +636,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     // 2. Synchronize Payments & Receipts
-    const unsubPayments = onSnapshot(collection(db, 'payments'), (snapshot) => {
+    const unsubPayments = hasAuthorizedSelectedProject ? onSnapshot(projectScopedQuery('payments'), (snapshot) => {
       const remotePayments: PaymentTransaction[] = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as PaymentTransaction;
@@ -642,10 +655,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
     }, (err) => {
       console.warn('Firestore payments listener fallback:', err);
-    });
+    }) : () => {};
 
     // 3. Synchronize Admin Notifications
-    const unsubNotifs = onSnapshot(collection(db, 'admin_notifications'), (snapshot) => {
+    const unsubNotifs = isAdminUser ? onSnapshot(collection(db, 'admin_notifications'), (snapshot) => {
       const remoteNotifs: AdminNotification[] = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as AdminNotification;
@@ -666,10 +679,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
     }, (err) => {
       console.warn('Firestore notifications listener fallback:', err);
-    });
+    }) : () => {};
 
     // 4. Synchronize Event Settings
-    const unsubSettings = onSnapshot(collection(db, 'event_settings'), (snapshot) => {
+    const unsubSettings = hasAuthorizedSelectedProject ? onSnapshot(projectScopedQuery('event_settings'), (snapshot) => {
       const remoteSettings: Record<string, EventSettings> = {};
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as EventSettings;
@@ -685,7 +698,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }, (err) => {
       console.warn('Firestore event settings listener fallback:', err);
-    });
+    }) : () => {};
 
     // 5. Synchronize Commercial Plans
     const unsubPlans = onSnapshot(collection(db, 'plans'), (snapshot) => {
@@ -706,7 +719,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     // 6. Synchronize Guests
-    const unsubGuests = onSnapshot(collection(db, 'guests'), (snapshot) => {
+    const unsubGuests = hasAuthorizedSelectedProject ? onSnapshot(projectScopedQuery('guests'), (snapshot) => {
       const grouped: Record<string, Guest[]> = {};
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as Guest;
@@ -724,10 +737,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }, (err) => {
       console.warn('Firestore guests listener fallback:', err);
-    });
+    }) : () => {};
 
     // 7. Synchronize Blessings
-    const unsubBlessings = onSnapshot(collection(db, 'blessings'), (snapshot) => {
+    const unsubBlessings = hasAuthorizedSelectedProject ? onSnapshot(projectScopedQuery('blessings'), (snapshot) => {
       const grouped: Record<string, Blessing[]> = {};
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as Blessing;
@@ -745,10 +758,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }, (err) => {
       console.warn('Firestore blessings listener fallback:', err);
-    });
+    }) : () => {};
 
     // 8. Synchronize Photos
-    const unsubPhotos = onSnapshot(collection(db, 'photos'), (snapshot) => {
+    const unsubPhotos = hasAuthorizedSelectedProject ? onSnapshot(projectScopedQuery('photos'), (snapshot) => {
       const grouped: Record<string, EventPhoto[]> = {};
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as EventPhoto;
@@ -766,7 +779,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }, (err) => {
       console.warn('Firestore photos listener fallback:', err);
-    });
+    }) : () => {};
 
     return () => {
       unsubProjects();
@@ -778,7 +791,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubBlessings();
       unsubPhotos();
     };
-  }, [currentUser.role, currentUser.email]);
+  }, [currentUser.role, currentUser.email, selectedProjectId]);
 
   const markAdminNotificationAsRead = (id: string) => {
     setAdminNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
