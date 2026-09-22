@@ -1,68 +1,80 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isAuthenticated() {
+    function signedIn() {
       return request.auth != null;
     }
 
-    // Plans and Templates
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    function ownsProject(projectId) {
+      return signedIn() && (
+        isAdmin() ||
+        get(/databases/$(database)/documents/projects/$(projectId)).data.clientEmail == request.auth.token.email
+      );
+    }
+
     match /plans/{planId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /templates/{templateId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    // Projects (Invitations and Orders)
     match /projects/{projectId} {
-      allow read, write: if true;
-      match /{allChildren=**} {
-        allow read, write: if true;
-      }
+      allow read: if ownsProject(projectId);
+      allow create: if signedIn() && (isAdmin() || request.resource.data.clientEmail == request.auth.token.email);
+      allow update: if ownsProject(projectId);
+      allow delete: if isAdmin();
     }
 
-    // Event Settings
-    match /event_settings/{settingId} {
-      allow read, write: if true;
+    match /event_settings/{projectId} {
+      allow read, write: if ownsProject(projectId);
     }
 
-    // Guests, Blessings, Photos, Display Settings
     match /guests/{guestId} {
-      allow read, write: if true;
+      allow read, write: if ownsProject(resource.data.projectId);
+      allow create: if ownsProject(request.resource.data.projectId);
+      allow delete: if ownsProject(resource.data.projectId);
     }
 
     match /blessings/{blessingId} {
-      allow read, write: if true;
+      allow read, create: if signedIn();
+      allow update, delete: if ownsProject(resource.data.projectId);
     }
 
     match /photos/{photoId} {
-      allow read, write: if true;
+      allow read, create: if signedIn();
+      allow update, delete: if ownsProject(resource.data.projectId);
     }
 
-    match /display_settings/{displayId} {
-      allow read, write: if true;
+    match /display_settings/{projectId} {
+      allow read, write: if ownsProject(projectId);
     }
 
-    // Payments / Bank transfer receipts
     match /payments/{paymentId} {
-      allow read, write: if true;
+      allow read: if ownsProject(resource.data.projectId);
+      allow create: if ownsProject(request.resource.data.projectId);
+      allow update: if isAdmin() || ownsProject(resource.data.projectId);
+      allow delete: if isAdmin();
     }
 
-    // Admin Notifications
-    match /admin_notifications/{notifId} {
-      allow read, write: if true;
+    match /admin_notifications/{notificationId} {
+      allow read, write: if isAdmin();
     }
 
-    // User profiles & system
     match /users/{userId} {
-      allow read, write: if true;
+      allow read, write: if signedIn() && (isAdmin() || request.auth.uid == userId);
     }
 
     match /system/{systemId} {
-      allow read, write: if true;
+      allow read: if signedIn();
+      allow write: if isAdmin();
     }
   }
 }

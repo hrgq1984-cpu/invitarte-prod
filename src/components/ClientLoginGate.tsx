@@ -16,22 +16,27 @@ interface ClientLoginGateProps {
 }
 
 export const ClientLoginGate: React.FC<ClientLoginGateProps> = ({ onSuccess, onGoBack }) => {
-  const { loginClient, currentProject } = useStore();
-  const [emailOrSlug, setEmailOrSlug] = useState('');
+  const { loginClient, loginDemoClient, currentProject } = useStore();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setTimeout(() => {
-      loginClient(emailOrSlug);
+    setTimeout(async () => {
+      const loggedIn = await loginClient(email, password);
       setIsSubmitting(false);
-      onSuccess();
+      if (loggedIn) {
+        onSuccess();
+      } else {
+        alert('No encontramos un evento con ese correo o código. Verifica los datos e inténtalo nuevamente.');
+      }
     }, 200);
   };
 
   const handleQuickDemoClient = () => {
-    loginClient('sofia');
+    loginDemoClient();
     onSuccess();
   };
 
@@ -78,18 +83,32 @@ export const ClientLoginGate: React.FC<ClientLoginGateProps> = ({ onSuccess, onG
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
-              Correo del Titular o Código de Evento
+              Correo del Titular
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-neutral-500 absolute left-3 top-3" />
               <input
                 type="text"
-                value={emailOrSlug}
-                onChange={(e) => setEmailOrSlug(e.target.value)}
-                placeholder="ej: cliente@email.com o sofia-mateo"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="cliente@email.com"
                 className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-xs"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Contraseña de Firebase Auth"
+              className="w-full px-3 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-amber-500 text-xs"
+            />
           </div>
 
           <button

@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { StoreProvider, useStore } from './lib/store';
 import { Navbar } from './components/Navbar';
 import { HeroCatalog } from './components/HeroCatalog';
-import { MobileMockup } from './components/MobileMockup';
-import { ClientDashboard } from './components/ClientDashboard';
-import { AdminDashboard } from './components/AdminDashboard';
-import { TvModeView } from './components/TvModeView';
-import { CheckoutModal } from './components/CheckoutModal';
 import { AuthModal } from './components/AuthModal';
-import { TechDocsModal } from './components/TechDocsModal';
-import { TestsRunnerModal } from './components/TestsRunnerModal';
+const ClientDashboard = lazy(() => import('./components/ClientDashboard').then(module => ({ default: module.ClientDashboard })));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
+const TvModeView = lazy(() => import('./components/TvModeView').then(module => ({ default: module.TvModeView })));
+const CheckoutModal = lazy(() => import('./components/CheckoutModal').then(module => ({ default: module.CheckoutModal })));
+const MobileMockup = lazy(() => import('./components/MobileMockup').then(module => ({ default: module.MobileMockup })));
+const TechDocsModal = lazy(() => import('./components/TechDocsModal').then(module => ({ default: module.TechDocsModal })));
+const TestsRunnerModal = lazy(() => import('./components/TestsRunnerModal').then(module => ({ default: module.TestsRunnerModal })));
 import { UrlGuideModal } from './components/UrlGuideModal';
 import { AdminLoginGate } from './components/AdminLoginGate';
 import { ClientLoginGate } from './components/ClientLoginGate';
@@ -146,6 +146,7 @@ function AppContent() {
       />
 
       {/* 2. MAIN VIEW SWITCHER */}
+      <Suspense fallback={<main className="flex-1 min-h-[60vh]" />}>
       <main className="flex-1">
         {currentView === 'catalog' && (
           <HeroCatalog
@@ -197,6 +198,7 @@ function AppContent() {
           )
         )}
       </main>
+      </Suspense>
 
       {/* 3. FOOTER */}
       <footer className="border-t border-neutral-800/80 bg-neutral-950/90 py-12 px-4 sm:px-6 lg:px-8 mt-16 text-xs text-neutral-400">

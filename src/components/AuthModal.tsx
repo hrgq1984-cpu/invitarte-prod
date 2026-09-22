@@ -16,27 +16,20 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ onClose, defaultMode = 'login' }) => {
-  const { setCurrentUser, currentUser } = useStore();
+  const { loginClient, registerClient } = useStore();
   const [mode, setMode] = useState<'login' | 'register'>(defaultMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
-    // Normal client authentication
-    setCurrentUser({
-      id: 'client-' + Date.now(),
-      email: email,
-      displayName: name || 'Cliente Registrado',
-      role: 'client',
-      phoneNumber: '5491144556677',
-      createdAt: new Date().toISOString()
-    });
-
-    onClose();
+    const authenticated = mode === 'login'
+      ? await loginClient(email, password)
+      : await registerClient(email, password, name);
+    if (authenticated) onClose();
   };
 
   return (

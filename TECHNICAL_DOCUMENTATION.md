@@ -109,6 +109,9 @@ Consulte el archivo fuente `firebase-blueprint.json` para las definiciones compl
    - `VITE_FIREBASE_STORAGE_BUCKET`
    - `VITE_FIREBASE_MESSAGING_SENDER_ID`
    - `VITE_FIREBASE_APP_ID`
+   - Habilitar Email/Password en Firebase Authentication.
+   - Crear el usuario administrador y asignarle el custom claim `{ "admin": true }` desde un entorno backend seguro.
+   - Desplegar `firestore.rules` antes de habilitar producción.
 7. Hacer clic en **Deploy**. Cada commit nuevo en GitHub desencadenará un despliegue automático.
 
 ---

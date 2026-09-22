@@ -137,7 +137,13 @@ El sistema cuenta con 3 niveles de servicio oficiales (los precios son actualiza
   * `photos`: Galería de imágenes del evento y fotos transmitidas desde la fiesta.
   * `payments`: Registro de comprobantes bancarios subidos por los clientes con montos y estados (`pending`, `approved`, `rejected`).
   * `plans`: Configuración de precios oficiales administrables en vivo.
-* **Reglas de Seguridad:** Definidas en `firestore.rules` y desplegadas con `deploy_firebase`.
+* **Reglas de Seguridad:** Definidas en `firestore.rules`. Las lecturas y escrituras requieren Firebase Auth; el propietario se valida por `clientEmail` y el administrador por el custom claim `admin: true`. Después de crear usuarios, es obligatorio desplegar las reglas actualizadas.
+
+### Autenticación Firebase obligatoria
+* El panel administrador usa email/contraseña de Firebase Auth y requiere el custom claim `admin: true`.
+* El panel cliente usa email/contraseña de Firebase Auth y solo puede acceder a proyectos cuyo `clientEmail` coincide con la cuenta autenticada.
+* El acceso demo es local y explícito; no concede permisos de Firestore.
+* No se deben volver a guardar sesiones, contraseñas o roles confiables en `localStorage`.
 
 ### Capa 2: LocalStorage con Tolerancia a Fallos
 * Se utiliza `safeSetLocalStorage(key, value)` en `src/lib/store.tsx` para atrapar cualquier excepción de cuota (`QuotaExceededError`).

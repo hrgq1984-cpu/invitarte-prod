@@ -20,25 +20,21 @@ interface AdminLoginGateProps {
 
 export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onSuccess, onGoBack }) => {
   const { loginAdmin } = useStore();
-  const [secretKey, setSecretKey] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const ok = loginAdmin(secretKey);
-      setIsSubmitting(false);
-      if (ok) {
-        onSuccess();
-      } else {
-        setError('Clave de administrador incorrecta. Ingrese la clave maestra para /Maximo1822.');
-      }
-    }, 250);
+    const ok = await loginAdmin(email, password);
+    setIsSubmitting(false);
+    if (ok) onSuccess();
+    else setError('Credenciales inválidas o usuario sin permisos de administrador.');
   };
 
   return (
@@ -85,19 +81,33 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onSuccess, onGoB
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
-              Clave Maestra de Acceso (/Maximo1822)
+              Correo del Administrador
+            </label>
+            <div className="relative">
+              <Mail className="w-4 h-4 text-neutral-500 absolute left-3 top-3" />
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@dominio.com"
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-blue-500 text-xs"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+              Contraseña
             </label>
             <div className="relative">
               <KeyRound className="w-4 h-4 text-neutral-500 absolute left-3 top-3" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
-                value={secretKey}
-                onChange={(e) => {
-                  setSecretKey(e.target.value);
-                  if (error) setError('');
-                }}
-                placeholder="Ingresa la clave maestra..."
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Contraseña de Firebase Auth"
                 className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-600 focus:outline-none focus:border-blue-500 text-xs"
               />
               <button

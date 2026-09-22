@@ -8,6 +8,8 @@ import {
   onSnapshot 
 } from 'firebase/firestore';
 import { db, cleanForFirestore } from './firebase';
+import { getFirebaseAuth } from './firebase';
+import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { 
   Plan, 
   DesignTemplate, 
@@ -43,8 +45,10 @@ interface StoreContextType {
   currentUser: User;
   setCurrentUser: (user: User) => void;
   logout: () => void;
-  loginAdmin: (secretKey: string) => boolean;
-  loginClient: (emailOrCode?: string) => boolean;
+  loginAdmin: (email: string, password: string) => Promise<boolean>;
+  loginClient: (email: string, password: string) => Promise<boolean>;
+  registerClient: (email: string, password: string, displayName: string) => Promise<boolean>;
+  loginDemoClient: () => void;
   plans: Plan[];
   updatePlanPrice: (planId: PlanTier, newPrice: number) => void;
   templates: DesignTemplate[];
@@ -120,25 +124,9 @@ export const DEMO_TEST_PROJECT_IDS = [
 
 export const isDemoProject = (p: Partial<Project> | any): boolean => {
   if (!p) return false;
-  if (p.id && DEMO_TEST_PROJECT_IDS.includes(p.id)) return true;
-  if (p.orderNumber && (
-    p.orderNumber === 'ORD-BODA-5120' || 
-    p.orderNumber === 'ORD-15AN-7842' || 
-    p.orderNumber === 'ORD-BAUT-9204' || 
-    p.orderNumber === 'ORD-COMU-8921'
-  )) return true;
-  if (p.clientEmail && (
-    p.clientEmail === 'camila.lautaro.boda@gmail.com' || 
-    p.clientEmail === 'familia.morales.xv@gmail.com' || 
-    p.clientEmail === 'papas.de.mateo@gmail.com'
-  )) return true;
-  if (p.honoreeName && (
-    p.honoreeName === 'Camila & Lautaro' || 
-    p.honoreeName === 'Valentina Morales' || 
-    p.honoreeName === 'Mateo Gael' ||
-    p.honoreeName === 'Santiago Tomás'
-  )) return true;
-  return false;
+  // A real order may legitimately use the same name or email as old samples.
+  // Only immutable fixture IDs are safe demo markers.
+  return typeof p.id === 'string' && DEMO_TEST_PROJECT_IDS.includes(p.id);
 };
 
 export const safeSetLocalStorage = (key: string, value: string) => {
@@ -204,59 +192,101 @@ export const VISITOR_USER: User = {
 const StoreContext = createContext<StoreContextType | null>(null);
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUserState] = useState<User>(() => {
-    try {
-      const savedUser = localStorage.getItem(`${STORAGE_KEY}_auth_user`);
-      if (savedUser) {
-        return JSON.parse(savedUser);
-      }
-    } catch (e) {
-      // ignore
-    }
-    return VISITOR_USER;
-  });
+  const [currentUser, setCurrentUserState] = useState<User>(VISITOR_USER);
 
   const setCurrentUser = (user: User) => {
     setCurrentUserState(user);
-    try {
-      localStorage.setItem(`${STORAGE_KEY}_auth_user`, JSON.stringify(user));
-    } catch (e) {}
   };
 
   const logout = () => {
     setCurrentUserState(VISITOR_USER);
+    const auth = getFirebaseAuth();
+    if (auth) signOut(auth).catch(() => {});
+  };
+
+  const loginAdmin = async (email: string, password: string): Promise<boolean> => {
+    const auth = getFirebaseAuth();
+    if (!auth) return false;
     try {
-      localStorage.removeItem(`${STORAGE_KEY}_auth_user`);
-    } catch (e) {}
-  };
-
-  const loginAdmin = (secretKey: string): boolean => {
-    const raw = secretKey.trim();
-    // Clave maestra: 'Maximo1822.@', o variantes 'Maximo1822', 'maximo1822.@', 'maximo1822', '1822'
-    if (
-      raw === 'Maximo1822.@' || 
-      raw.toLowerCase() === 'maximo1822.@' || 
-      raw.toLowerCase() === 'maximo1822' || 
-      raw === 'Maximo1822' ||
-      raw === '1822'
-    ) {
-      setCurrentUser(ADMIN_USER);
-      try {
-        localStorage.setItem(`${STORAGE_KEY}_auth_user`, JSON.stringify(ADMIN_USER));
-      } catch (e) {}
+      const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const token = await credential.user.getIdTokenResult(true);
+      if (token.claims.admin !== true) {
+        await signOut(auth);
+        return false;
+      }
+      setCurrentUser({ ...ADMIN_USER, id: credential.user.uid, email: credential.user.email || email });
       return true;
+    } catch {
+      return false;
     }
-    return false;
   };
 
-  const loginClient = (emailOrCode?: string): boolean => {
-    const clean = (emailOrCode || '').trim().toLowerCase();
-    if (clean && clean.includes('admin')) {
-      return false; // not client
+  const loginClient = async (email: string, password: string): Promise<boolean> => {
+    const auth = getFirebaseAuth();
+    if (!auth) return false;
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const project = projects.find(p => p.clientEmail.toLowerCase() === email.trim().toLowerCase());
+      if (!project) {
+        await signOut(auth);
+        return false;
+      }
+      setCurrentUser({
+        id: credential.user.uid,
+        email: credential.user.email || email,
+        displayName: project.honoreeName || 'Cliente InvitArte',
+        role: 'client',
+        phoneNumber: project.clientPhone,
+        createdAt: new Date().toISOString()
+      });
+      setSelectedProjectId(project.id);
+      return true;
+    } catch {
+      return false;
     }
-    setCurrentUser(DEMO_CLIENT_USER);
-    return true;
   };
+
+  const registerClient = async (email: string, password: string, displayName: string): Promise<boolean> => {
+    const auth = getFirebaseAuth();
+    if (!auth) return false;
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      setCurrentUser({
+        id: credential.user.uid,
+        email: credential.user.email || email,
+        displayName: displayName || 'Cliente Registrado',
+        role: 'client',
+        createdAt: new Date().toISOString()
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const loginDemoClient = () => {
+    setCurrentUser(DEMO_CLIENT_USER);
+  };
+
+  useEffect(() => {
+    const auth = getFirebaseAuth();
+    if (!auth) return;
+    return onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        setCurrentUserState(VISITOR_USER);
+        return;
+      }
+      const token = await firebaseUser.getIdTokenResult();
+      const isAdmin = token.claims.admin === true;
+      setCurrentUserState({
+        id: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        displayName: firebaseUser.displayName || (isAdmin ? ADMIN_USER.displayName : 'Cliente InvitArte'),
+        role: isAdmin ? 'admin' : 'client',
+        createdAt: new Date(firebaseUser.metadata.creationTime || Date.now()).toISOString()
+      });
+    });
+  }, []);
 
   const [plans, setPlans] = useState<Plan[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY}_plans`);
@@ -597,7 +627,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const remotePayments: PaymentTransaction[] = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as PaymentTransaction;
-        if (data && data.id) remotePayments.push(data);
+        if (data && data.id && !isDemoProject({ id: data.projectId })) remotePayments.push(data);
       });
 
       setPayments(prev => {
@@ -619,7 +649,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const remoteNotifs: AdminNotification[] = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as AdminNotification;
-        if (data && data.id) remoteNotifs.push(data);
+        if (data && data.id && !isDemoProject({ id: data.projectId })) remoteNotifs.push(data);
       });
 
       setAdminNotifications(prev => {
@@ -643,7 +673,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const remoteSettings: Record<string, EventSettings> = {};
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as EventSettings;
-        if (data && docSnap.id) remoteSettings[docSnap.id] = data;
+        if (data && docSnap.id && !isDemoProject({ id: data.projectId || docSnap.id })) remoteSettings[docSnap.id] = data;
       });
 
       if (Object.keys(remoteSettings).length > 0) {
@@ -680,7 +710,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const grouped: Record<string, Guest[]> = {};
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as Guest;
-        if (data && data.projectId) {
+        if (data && data.projectId && !isDemoProject({ id: data.projectId })) {
           if (!grouped[data.projectId]) grouped[data.projectId] = [];
           grouped[data.projectId].push(data);
         }
@@ -701,7 +731,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const grouped: Record<string, Blessing[]> = {};
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as Blessing;
-        if (data && data.projectId) {
+        if (data && data.projectId && !isDemoProject({ id: data.projectId })) {
           if (!grouped[data.projectId]) grouped[data.projectId] = [];
           grouped[data.projectId].push(data);
         }
@@ -722,7 +752,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const grouped: Record<string, EventPhoto[]> = {};
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as EventPhoto;
-        if (data && data.projectId) {
+        if (data && data.projectId && !isDemoProject({ id: data.projectId })) {
           if (!grouped[data.projectId]) grouped[data.projectId] = [];
           grouped[data.projectId].push(data);
         }
@@ -748,7 +778,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubBlessings();
       unsubPhotos();
     };
-  }, []);
+  }, [currentUser.role, currentUser.email]);
 
   const markAdminNotificationAsRead = (id: string) => {
     setAdminNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
@@ -780,7 +810,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Current active project & settings
   const currentProject = projects.find(p => p.id === selectedProjectId) || projects[0] || REFERENCE_PROJECT;
-  const currentEventSettings = eventSettingsMap[currentProject.id] || REFERENCE_EVENT_SETTINGS;
+  const currentEventSettings = eventSettingsMap[currentProject.id] || (
+    currentProject.id === REFERENCE_PROJECT.id ? REFERENCE_EVENT_SETTINGS : {
+      ...REFERENCE_EVENT_SETTINGS,
+      projectId: currentProject.id,
+      title: currentProject.honoreeName || REFERENCE_EVENT_SETTINGS.title,
+      honoreeName: currentProject.honoreeName || REFERENCE_EVENT_SETTINGS.honoreeName,
+      date: currentProject.eventDate || REFERENCE_EVENT_SETTINGS.date
+    }
+  );
   const guests = guestsMap[currentProject.id] || [];
   const blessings = blessingsMap[currentProject.id] || [];
   const photos = photosMap[currentProject.id] || [];

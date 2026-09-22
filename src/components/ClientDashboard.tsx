@@ -307,12 +307,8 @@ export const ClientDashboard: React.FC<ClientDashboardProps> = ({ onNavigate, on
       const compressed = await compressImageFile(file, 1000, 1000, 0.75);
       handleAddPhotoUrl(compressed);
     } catch (e) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string;
-        handleAddPhotoUrl(dataUrl);
-      };
-      reader.readAsDataURL(file);
+      console.warn('Invitation photo compression failed:', e);
+      alert('No se pudo procesar la foto. Prueba con otra imagen.');
     }
   };
 

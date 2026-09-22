@@ -409,21 +409,9 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
         confetti({ particleCount: 30, spread: 45 });
       } catch {}
     } catch (err) {
-      console.warn('Fallback file reader:', err);
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string;
-        addPhoto(currentProject.id, {
-          source: 'event',
-          url: dataUrl,
-          author: uploadAuthor || (guest ? guest.name : 'Invitado del Evento'),
-          status: 'approved',
-          watermarkEnabled: true
-        });
-        setUploadingPhoto(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      };
-      reader.readAsDataURL(file);
+      console.warn('Event photo compression failed:', err);
+      setUploadingPhoto(false);
+      alert('No se pudo procesar la foto. Prueba con otra imagen.');
     }
   };
 

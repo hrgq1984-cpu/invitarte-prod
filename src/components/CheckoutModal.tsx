@@ -73,12 +73,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const compressed = await compressImageFile(file, 800, 800, 0.75);
       setReceiptFile(compressed);
     } catch (err) {
-      console.warn('Compression error, falling back to FileReader:', err);
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setReceiptFile(ev.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      console.warn('Receipt compression failed:', err);
+      setReceiptFile(null);
+      alert('No se pudo procesar el comprobante. Prueba con otra imagen.');
     } finally {
       setCompressingReceipt(false);
     }

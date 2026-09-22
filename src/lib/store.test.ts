@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { INITIAL_TEMPLATES, INITIAL_PLANS, REFERENCE_PROJECT, REFERENCE_EVENT_SETTINGS } from '../data/initialData';
 import { EventType } from '../types';
+import { isDemoProject } from './store';
 
 describe('InvitArte Platform - Initial Data & Catalog Specs', () => {
   it('should contain exactly 21 design templates (3 for each of the 7 event types)', () => {
@@ -73,5 +74,19 @@ Lucas Martinez, Amigo, 5491144556677, 1, 0`;
     expect(REFERENCE_PROJECT.clientId).toBeDefined();
     expect(REFERENCE_EVENT_SETTINGS.locationName).toContain('Salón');
     expect(REFERENCE_EVENT_SETTINGS.carouselPhotos.length).toBeGreaterThan(0);
+  });
+
+  it('should not classify a real order by editable customer data', () => {
+    expect(isDemoProject({
+      id: 'proj-boda-real-unique',
+      orderNumber: 'ORD-BODA-5120',
+      clientEmail: 'camila.lautaro.boda@gmail.com',
+      honoreeName: 'Camila & Lautaro'
+    })).toBe(false);
+  });
+
+  it('should classify only known fixture IDs as demos', () => {
+    expect(isDemoProject({ id: 'proj-boda-camila-lautaro' })).toBe(true);
+    expect(isDemoProject({ id: 'proj-real-order-123' })).toBe(false);
   });
 });
