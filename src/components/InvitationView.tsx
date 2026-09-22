@@ -28,6 +28,11 @@ import { useStore } from '../lib/store';
 import { ambientAudio } from '../lib/audioSynth';
 import { EventSettings, Guest, Plan, DesignTemplate, isCeremonySupported } from '../types';
 import { compressImageFile } from '../lib/imageCompression';
+import { 
+  buildTemplateSampleSettings, 
+  buildTemplateSampleBlessings, 
+  buildTemplateSamplePhotos 
+} from '../lib/templatePreviewHelper';
 
 interface InvitationViewProps {
   guestToken?: string;
@@ -56,8 +61,16 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
     submitRsvp 
   } = useStore();
 
-  // Resolved active event settings (customSettings override for real-time live preview)
-  const settings = customSettings || currentEventSettings;
+  // Determine if this is a sample preview of a template model
+  const isPreviewMode = Boolean(activeTemplate && !customSettings);
+
+  // Resolved active event settings:
+  // 1. Explicit customSettings (e.g. client editing live in dashboard)
+  // 2. Rich sample settings generated specifically for the activeTemplate being previewed
+  // 3. Current contracted project settings fallback
+  const settings = customSettings 
+    ? customSettings 
+    : (activeTemplate ? buildTemplateSampleSettings(activeTemplate) : currentEventSettings);
 
   // Resolve active plan dynamically based on activeTemplate if provided, or currentProject
   const plan = activeTemplate
@@ -72,8 +85,18 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
   // Is this Plan Oro (has envelope animation and VIP features)
   const isPlanOro = (plan && plan.id === 'oro') || (activeTemplate && activeTemplate.requiredPlan === 'oro') || Boolean(plan?.hasEnvelopeAnimation);
 
-  // Specific invited guest if token matches
-  const guest = guests.find(g => g.inviteToken === guestToken) || guests[0] || null;
+  // Specific invited guest if token matches. In sample preview mode, keep null unless explicit guest token matched.
+  const matchedGuest = guests.find(g => g.inviteToken === guestToken);
+  const guest = isPreviewMode ? (matchedGuest || null) : (matchedGuest || guests[0] || null);
+
+  // Dynamic blessings and live event photos based on preview mode vs client mode
+  const effectiveBlessings = isPreviewMode && activeTemplate
+    ? buildTemplateSampleBlessings(activeTemplate)
+    : blessings;
+
+  const effectivePhotos = isPreviewMode && activeTemplate
+    ? buildTemplateSamplePhotos(activeTemplate)
+    : photos;
 
   // Envelope state (only active if plan has envelope animation)
   const [envelopeOpened, setEnvelopeOpened] = useState<boolean>(() => {
@@ -863,7 +886,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
 
             {/* List of wishes */}
             <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-              {blessings.filter(b => b.status === 'approved').map(b => (
+              {effectiveBlessings.filter(b => b.status === 'approved').map(b => (
                 <div key={b.id} className="p-3 rounded-xl bg-amber-50/60 border border-amber-200/50 space-y-1">
                   <div className="flex items-center justify-between text-[11px] font-sans-clean">
                     <span className="font-bold text-amber-950">{b.author}</span>
@@ -926,7 +949,7 @@ export const InvitationView: React.FC<InvitationViewProps> = ({
 
             {/* Live photos stream */}
             <div className="grid grid-cols-3 gap-2">
-              {photos.filter(p => p.source === 'event' && p.status === 'approved').slice(0, 6).map(p => (
+              {effectivePhotos.filter(p => p.source === 'event' && p.status === 'approved').slice(0, 6).map(p => (
                 <div key={p.id} className="relative rounded-lg overflow-hidden aspect-square border border-neutral-200">
                   <img src={p.url} alt="" className="w-full h-full object-cover" />
                   <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] px-1 py-0.5 truncate text-center">
