@@ -30,7 +30,6 @@ let db: Firestore | null = null;
 if (isFirebaseConfigured) {
   try {
     app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-    auth = getAuth(app);
     const dbId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
       ? firebaseConfig.firestoreDatabaseId
       : undefined;
@@ -50,6 +49,21 @@ if (isFirebaseConfigured) {
 } else {
   console.info('Running in preview/demo mode with reactive local persistence. Configure Firebase env vars to connect to live cloud Firestore.');
 }
+
+/**
+ * Lazy initializer for Firebase Auth to prevent unauthorized domain warnings
+ * on hosting platforms when third-party OAuth popups are not in active use.
+ */
+export const getFirebaseAuth = (): Auth | null => {
+  if (!auth && app) {
+    try {
+      auth = getAuth(app);
+    } catch (e) {
+      console.warn('Firebase Auth initialization skipped:', e);
+    }
+  }
+  return auth;
+};
 
 export { app, auth, db };
 
