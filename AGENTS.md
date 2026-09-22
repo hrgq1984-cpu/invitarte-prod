@@ -21,7 +21,8 @@
 * **Animaciones & Efectos:** `motion/react`, `canvas-confetti`.
 * **Iconografía:** `lucide-react` únicamente.
 * **Audio:** Web Audio API (`src/lib/audioSynth.ts`) para sintetizar música ambiental polifónica sin fallos de CORS ni dependencias externas.
-* **Persistencia:** React Context (`src/lib/store.tsx`) + `localStorage` tolerante a cuotas + esquemas listos para Firestore (`firebase-blueprint.json` y `firestore.rules`).
+* **Persistencia Dual (Cloud + Local):** React Context (`src/lib/store.tsx`) + Google Cloud Firestore activo (Project ID `gen-lang-client-0637251409`, Database ID `ai-studio-tuinvitaciondigi-c1d22d6e-1ee4-4a41-a4b9-4f3e83a11ae2`) + `localStorage` tolerante a cuotas (`safeSetLocalStorage`).
+* **Especificaciones Completas:** Consultar `/SYSTEM_SPECIFICATIONS.md` para el detalle exhaustivo de contratos TypeScript, 21 plantillas, reglas de Firestore y flujo de renderizado dinámico.
 
 ---
 
