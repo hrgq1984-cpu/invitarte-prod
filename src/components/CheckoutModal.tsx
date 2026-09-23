@@ -22,6 +22,7 @@ import {
 import { useStore } from '../lib/store';
 import { DesignTemplate, PlanTier, Project } from '../types';
 import { compressImageFile } from '../lib/imageCompression';
+import { ensureAnonymousAuth } from '../lib/firebase';
 
 interface CheckoutModalProps {
   template: DesignTemplate;
@@ -81,7 +82,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
@@ -109,6 +110,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setLoading(true);
 
     try {
+      const authenticatedForOrder = await ensureAnonymousAuth();
+      if (!authenticatedForOrder) {
+        setFormError('No se pudo conectar con el sistema de pedidos. Intenta nuevamente en unos segundos.');
+        setLoading(false);
+        return;
+      }
       const newProj = createOrder({
         eventType: template.eventType,
         templateId: template.id,

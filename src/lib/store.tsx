@@ -591,7 +591,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Real-time Cloud Synchronization with Firestore across all terminals & devices
   useEffect(() => {
-    if (!db || currentUser.role === 'guest') return;
+    const firebaseAuth = getFirebaseAuth();
+    if (!db || currentUser.role === 'guest' || firebaseAuth?.currentUser?.isAnonymous) return;
 
     const isAdminUser = currentUser.role === 'admin';
     const hasAuthorizedSelectedProject = isAdminUser || projects.some(project =>
@@ -1262,10 +1263,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Persist immediately to Firestore cloud database so order syncs across all devices & terminals
     if (db) {
-      setDoc(doc(db, 'projects', projectId), cleanForFirestore(newProject)).catch(e => console.warn('Firestore project write warning:', e));
-      setDoc(doc(db, 'payments', paymentId), cleanForFirestore(newPayment)).catch(e => console.warn('Firestore payment write warning:', e));
+      setDoc(doc(db, 'projects', projectId), cleanForFirestore(newProject)).catch(e => console.error('Firestore project write failed:', e));
+      setDoc(doc(db, 'payments', paymentId), cleanForFirestore(newPayment)).catch(e => console.error('Firestore payment write failed:', e));
       setDoc(doc(db, 'event_settings', projectId), cleanForFirestore(newSettings)).catch(e => console.warn('Firestore settings write warning:', e));
-      setDoc(doc(db, 'admin_notifications', notif.id), cleanForFirestore(notif)).catch(e => console.warn('Firestore notif write warning:', e));
+      setDoc(doc(db, 'admin_notifications', notif.id), cleanForFirestore(notif)).catch(e => console.warn('Firestore notification write skipped:', e));
     }
 
     if (typeof window !== 'undefined') {

@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { getAuth, Auth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, Firestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseAppletConfig from '../../firebase-applet-config.json';
 
@@ -63,6 +63,19 @@ export const getFirebaseAuth = (): Auth | null => {
     }
   }
   return auth;
+};
+
+export const ensureAnonymousAuth = async (): Promise<boolean> => {
+  const currentAuth = getFirebaseAuth();
+  if (!currentAuth) return false;
+  if (currentAuth.currentUser) return true;
+  try {
+    await signInAnonymously(currentAuth);
+    return true;
+  } catch (error) {
+    console.warn('Anonymous Firebase Auth unavailable:', error);
+    return false;
+  }
 };
 
 export { app, auth, db };

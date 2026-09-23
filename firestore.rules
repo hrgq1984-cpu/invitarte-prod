@@ -9,6 +9,10 @@ service cloud.firestore {
       return signedIn() && request.auth.token.admin == true;
     }
 
+    function isAnonymousOrder() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
     function ownsProject(projectId) {
       return signedIn() && (
         isAdmin() ||
@@ -28,13 +32,16 @@ service cloud.firestore {
 
     match /projects/{projectId} {
       allow read: if ownsProject(projectId);
-      allow create: if signedIn() && (isAdmin() || request.resource.data.clientEmail == request.auth.token.email);
+      allow create: if isAdmin() ||
+        (isAnonymousOrder() && request.resource.data.status in ['payment_review', 'preview_available']);
       allow update: if ownsProject(projectId);
       allow delete: if isAdmin();
     }
 
     match /event_settings/{projectId} {
-      allow read, write: if ownsProject(projectId);
+      allow read: if ownsProject(projectId);
+      allow create: if isAnonymousOrder() && request.resource.data.projectId == projectId;
+      allow update: if ownsProject(projectId);
     }
 
     match /guests/{guestId} {
@@ -59,13 +66,17 @@ service cloud.firestore {
 
     match /payments/{paymentId} {
       allow read: if ownsProject(resource.data.projectId);
-      allow create: if ownsProject(request.resource.data.projectId);
+      allow create: if isAdmin() || (isAnonymousOrder() &&
+        get(/databases/$(database)/documents/projects/$(request.resource.data.projectId)).data.status in ['payment_review', 'preview_available']);
       allow update: if isAdmin() || ownsProject(resource.data.projectId);
       allow delete: if isAdmin();
     }
 
     match /admin_notifications/{notificationId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow create: if isAdmin() || (isAnonymousOrder() &&
+        request.resource.data.type in ['order_created', 'receipt_uploaded']);
+      allow update, delete: if isAdmin();
     }
 
     match /users/{userId} {
