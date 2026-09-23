@@ -1,0 +1,8 @@
+{
+  "firestore": [
+    {
+      "database": "ai-studio-tuinvitaciondigi-c1d22d6e-1ee4-4a41-a4b9-4f3e83a11ae2",
+      "rules": "firestore.rules"
+    }
+  ]
+}
